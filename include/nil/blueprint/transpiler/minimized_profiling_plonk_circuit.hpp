@@ -403,7 +403,7 @@ namespace nil {
             ) {
                 std::stringstream res;
                 for( auto it = std::cbegin(terms); it != std::cend(terms); it++ ){
-                    if(it->coeff == FieldType::value_type::one())
+                    if(it->coeff == FieldType::value_type::one() && it->vars.size() != 0 )
                         res << generate_term(profiling_params, it->vars, columns_rotations, true);
                     else {
                         res << "\t\t\tterms:=0x" << std::hex << it->coeff.data << std::dec << std::endl;
