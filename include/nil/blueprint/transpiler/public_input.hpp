@@ -34,6 +34,27 @@
 
 namespace nil {
     namespace blueprint {
+        template<typename FieldType>
+        std::string convert_numeric_vector_input_to_json(std::vector<FieldType> public_input){
+            std::stringstream result;
+
+            result << "[" << std::endl;
+            std::size_t i = 0;
+            if( i != 0 ){
+                result << "," << std::endl;
+            }
+            for (std::size_t i = 0; i < public_input.size(); i++) 
+            {
+                if( i != 0 ){
+                    result << "," << std::endl;
+                }
+                result << public_input[i].data;
+            }
+            result << std::endl << "]";
+            
+            return result.str();
+        }
+        
         template<typename FieldType> 
         std::string convert_numeric_public_input_to_json(std::string path){
             std::ifstream in(path);
