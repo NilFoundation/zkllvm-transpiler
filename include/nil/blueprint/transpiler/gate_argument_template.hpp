@@ -302,7 +302,6 @@ $GATE_ARGUMENT_LOCAL_VARS_OFFSETS$
             let modulus := mload(gate_params)
             let theta := mload(add(gate_params, THETA_OFFSET))
 
-            mstore(add(local_vars, GATE_EVAL_OFFSET), 0)
 $GATES_GET_EVALUATIONS_FUNCTIONS$
 $GATES_ASSEMBLY_CODE$
         }

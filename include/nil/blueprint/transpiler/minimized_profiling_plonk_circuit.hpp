@@ -45,14 +45,15 @@
 #include <nil/blueprint/transpiler/gate_argument_template.hpp>
 
 #include <boost/assert.hpp>
-#include <boost/algorithm/string.hpp> 
+#include <boost/algorithm/string.hpp>
+ 
 
 namespace nil {
     namespace blueprint {
         template<typename FieldType, typename ArithmetizationParams>
         struct minimized_profiling_plonk_circuit {
             static const std::size_t MAX_LINES = 1200;
-            static const std::size_t ONE_FILE_GATES_MAX_LINES = 1000;
+            static const std::size_t ONE_FILE_GATES_MAX_LINES = 1200;
 
             using columns_rotations_type = std::array<std::set<int>, ArithmetizationParams::total_columns>;
             using ArithmetizationType = nil::crypto3::zk::snark::plonk_constraint_system<FieldType, ArithmetizationParams>;
@@ -137,20 +138,31 @@ namespace nil {
                     for (const auto& gate: gates) {
                         std::size_t gate_lines = 2;
                         for (const auto& constraint: gate.constraints) {
-                            gate_lines += 2;
             			    // Convert constraint expression to non_linear_combination.
  	                        crypto3::math::expression_to_non_linear_combination_visitor<variable_type> visitor;
                             auto comb = visitor.convert(constraint);
 
                             for (std::size_t t_index = 0; t_index < comb.terms.size(); t_index++) {
-                                if (comb.terms[t_index].coeff != FieldType::value_type::one())
-                                    gate_lines += 1;
-                                gate_lines += comb.terms[t_index].vars.size();
+                                if( comb.terms[t_index].vars.size() == 0 ){
+                                    gate_lines += 2;
+                                    continue;
+                                }
+                                if( comb.terms[t_index].coeff == FieldType::value_type::one()  && comb.terms[t_index].vars.size() == 1 ){
+                                    gate_lines += 2;
+                                    continue;
+                                }
+                                if( comb.terms[t_index].coeff == FieldType::value_type::one()  ){
+                                   gate_lines += comb.terms[t_index].vars.size();
+                                   continue;
+                                }
+                                if( comb.terms[t_index].coeff != FieldType::value_type::one()  ){
+                                   gate_lines += comb.terms[t_index].vars.size() + 1;
+                                   continue;
+                                }
                                 gate_lines += 1;
                             }
-                            gate_lines += 1;
+                            gate_lines += 3;
                         }
-                        gate_lines += 2;
                         this->gates_lines.push_back(gate_lines);
                     }
 
@@ -160,16 +172,19 @@ namespace nil {
                     this->gates_num.push_back(0);
                     this->gates_first.push_back(0);
                     for( std::size_t i =0; i < this->gates_lines.size(); i++ ){
-                        BOOST_ASSERT( this->gates_lines[i] < MAX_LINES );
                         if( sum + this->gates_lines[i] < MAX_LINES ){
                             sum += this->gates_lines[i];
                             total += this->gates_lines[i];
                             this->gates_num[cur]++;
                             continue;
                         }
+                        for( std::size_t j = 0; j < this->gates_lines[i] / MAX_LINES; j++ ){
+                            this->gates_num.push_back(0);
+                            cur++;
+                        }
                         cur++;
                         this->gates_num.push_back(1);
-                        sum = this->gates_lines[i];
+                        sum = this->gates_lines[i]%MAX_LINES;
                         this->gates_first.push_back(i);
                     }
                     this->one_file_gates = (total < ONE_FILE_GATES_MAX_LINES);
@@ -341,7 +356,7 @@ namespace nil {
                 std::size_t rotation_idx = std::distance(
                     columns_rotations.at(global_index).begin(),
                     columns_rotations.at(global_index).find(var.rotation)
-                    );
+                );
 
                 if (var.type == variable_type::witness) {
                     if( profiling_params.rotated_witness )
@@ -370,24 +385,38 @@ namespace nil {
                 return res.str();
             }
 
-            template<typename Vars>
+            template<typename Term>
             static std::string generate_term(
                 const profiling_params_type &profiling_params,
-                const Vars &vars, 
-                columns_rotations_type &columns_rotations,
-                bool coeff_one = false
+                const Term &term, 
+                columns_rotations_type &columns_rotations
             ) {
                 std::stringstream res;
                 bool first = true;
+                auto vars = term.vars;
 
-                for( auto it = std::cbegin(vars); it != std::end(vars); it++){
-                    if( first ){
-                        first = false;
-                        if(coeff_one){
-                            res << "\t\t\tterms:=" << generate_variable(profiling_params, *it, columns_rotations) << std::endl;
-                            continue;
-                        }
-                    }
+                if( vars.size() == 0 ){
+                    res << "\t\t\tterms:=0x" << std::hex << term.coeff.data << std::dec << std::endl;
+                    return res.str();
+                }
+                auto it = std::cbegin(vars);
+                if( term.coeff == FieldType::value_type::one() && vars.size() == 1 ){
+                    res << "\t\t\tterms:=" << generate_variable(profiling_params, *it, columns_rotations) << std::endl;
+                    return res.str();
+                }
+                if( term.coeff != FieldType::value_type::one() ){
+                    res << "\t\t\tterms:=mulmod(0x" << std::hex << term.coeff.data << std::dec << 
+                        "," << generate_variable(profiling_params, *it, columns_rotations) << 
+                        ", modulus)" << std::endl;
+                    it++;
+                } else {
+                    res << "\t\t\tterms:=mulmod(" << generate_variable(profiling_params, *it, columns_rotations) << ",";
+                    it++;
+                    res << generate_variable(profiling_params, *it, columns_rotations) << ", modulus)" << std::endl;
+                    it++;
+                }
+
+                for( ; it != std::end(vars); it++){
                     res << "\t\t\tterms:=mulmod(terms, ";
                     res << generate_variable(profiling_params, *it, columns_rotations);
                     res << ", modulus)" << std::endl;
@@ -402,13 +431,8 @@ namespace nil {
                     columns_rotations_type &columns_rotations
             ) {
                 std::stringstream res;
-                for( auto it = std::cbegin(terms); it != std::cend(terms); it++ ){
-                    if(it->coeff == FieldType::value_type::one())
-                        res << generate_term(profiling_params, it->vars, columns_rotations, true);
-                    else {
-                        res << "\t\t\tterms:=0x" << std::hex << it->coeff.data << std::dec << std::endl;
-                        res << generate_term(profiling_params, it->vars, columns_rotations, false);
-                    }
+                for( std::size_t i = 0; i < terms.size(); i++ ){
+                    res << generate_term(profiling_params, terms[i], columns_rotations);
                     res << "\t\t\tmstore("
                           "add(local_vars, CONSTRAINT_EVAL_OFFSET),"
                           "addmod("
@@ -483,7 +507,7 @@ namespace nil {
                     "gates_evaluation,"
                     "mload(add(local_vars, GATE_EVAL_OFFSET)),"
                     "modulus"
-                    ")\n";
+                    ")";
             }
 
             static std::string generate_gate_assembly_code(
@@ -492,16 +516,35 @@ namespace nil {
                 columns_rotations_type &columns_rotations
             ) {
                 std::stringstream res;
-                res << "\t\t\t//Gate" << gate_ind << std::endl;
                 res << "\t\t\tmstore(add(local_vars, GATE_EVAL_OFFSET), 0)" << std::endl;
+                std::size_t i = 0;
                 for (auto &constraint : gate.constraints) {
                     res << generate_constraint(profiling_params, constraint, columns_rotations);
                     res << generate_gate_evaluation();
                     res << generate_theta_acc();
+                    i++;
                 }
                 res << generate_selector(gate);
                 res << generate_gate_argument_evaluation();
                 return res.str();
+            }
+
+            static std::vector<std::string> generate_constraints_assembly_code(
+                const profiling_params_type &profiling_params, 
+                int gate_ind, const GateType &gate, 
+                columns_rotations_type &columns_rotations
+            ) {
+                std::size_t i = 0;
+                std::vector<std::string> result;
+                for (auto &constraint : gate.constraints) {
+                    std::stringstream res;
+                    res << generate_constraint(profiling_params, constraint, columns_rotations);
+                    res << generate_gate_evaluation();
+                    res << generate_theta_acc();
+                    result.push_back(res.str());
+                    i++;
+                }
+                return result;
             }
 
             static void print_gate_file(
@@ -521,6 +564,119 @@ namespace nil {
                 boost::replace_all(result, "$GATES_ASSEMBLY_CODE$", generate_gate_assembly_code(profiling_params, gate_ind, gate, columns_rotations));
                 gate_out << result;
             }
+
+            static void print_large_gate_files(
+                int gate_ind, 
+                const std::vector<std::string> out_files_names, 
+                std::string id,
+                const profiling_params_type &profiling_params,
+                std::string gate_sol_file_template, 
+                const GateType &gate,
+                columns_rotations_type &columns_rotations
+            ) {
+                BOOST_ASSERT(out_files_names.size() == profiling_params.gates_lines[gate_ind] / MAX_LINES + 1);
+                auto constraints_code = generate_constraints_assembly_code(profiling_params, gate_ind, gate, columns_rotations);
+                constraints_code[0] = "\t\t\tmstore(add(local_vars, GATE_EVAL_OFFSET), 0)\n" + constraints_code[0];
+                constraints_code[constraints_code.size() - 1] += generate_selector(gate);
+                constraints_code[constraints_code.size() - 1] += generate_gate_argument_evaluation();
+
+                std::vector<std::string> files_assembly_code;
+                std::size_t sum = 0;
+                std::string cur_file_assembly_code;
+                std::size_t j = 0;
+                for (auto &constraint_code : constraints_code) {
+                    if( sum + std::count(constraint_code.begin(),constraint_code.end(), '\n') < MAX_LINES ){
+                        sum += std::count(constraint_code.begin(),constraint_code.end(), '\n');
+                        cur_file_assembly_code += constraint_code;
+                    } else {
+                        cur_file_assembly_code +=  "\t\t\t gates_evaluation := mload(add(local_vars, GATE_EVAL_OFFSET))\n";
+                        files_assembly_code.push_back(cur_file_assembly_code);
+                        sum = std::count(constraint_code.begin(),constraint_code.end(), '\n');
+                        cur_file_assembly_code = constraint_code;
+                    }
+                }
+                files_assembly_code.push_back(cur_file_assembly_code);
+                BOOST_ASSERT(files_assembly_code.size() == profiling_params.gates_lines[gate_ind]/MAX_LINES + 1);
+                for( std::size_t i = 0; i < files_assembly_code.size(); i++ ){
+                    std::string result = gate_sol_file_template;
+
+                    boost::replace_all(result, "$TEST_ID$", id);
+                    boost::replace_all(result, "$GATE_ARGUMENT_LOCAL_VARS_OFFSETS$", profiling_params.evals_offsets);
+                    boost::replace_all(result, "$GATES_GET_EVALUATIONS_FUNCTIONS$", profiling_params.get_evals_functions);
+                    boost::replace_all(result, "$CONTRACT_NUMBER$", std::to_string(gate_ind)+ "_" + std::to_string(i));
+                    boost::replace_all(result, "$GATES_ASSEMBLY_CODE$", files_assembly_code[i]);
+                    std::ofstream gate_out;
+                    gate_out.open(out_files_names[i]);
+                    gate_out << result;
+                    gate_out.close();
+                }
+            }
+
+            static void print_multiple_gates_with_large_file(
+                int gate_ind, 
+                int gates_num,
+                const std::vector<std::string> out_files_names, 
+                std::string id,
+                const profiling_params_type &profiling_params,
+                std::string gate_sol_file_template, 
+                const ArithmetizationType &bp,
+                columns_rotations_type &columns_rotations
+            ){
+                // Print first files filled by large files
+                const GateType &gate = bp.gates()[gate_ind];
+
+                BOOST_ASSERT(out_files_names.size() == profiling_params.gates_lines[gate_ind] / MAX_LINES + 1);
+                auto constraints_code = generate_constraints_assembly_code(profiling_params, gate_ind, gate, columns_rotations);
+                
+                constraints_code[0] = "\t\t\tmstore(add(local_vars, GATE_EVAL_OFFSET), 0)\n" + constraints_code[0];
+                constraints_code[constraints_code.size() - 1] += generate_selector(gate);
+                constraints_code[constraints_code.size() - 1] += generate_gate_argument_evaluation();
+
+                std::vector<std::string> files_assembly_code;
+                std::size_t sum = 0;
+                std::string cur_file_assembly_code;
+                std::size_t j = 0;
+                std::size_t total_sum = 0;
+                for (auto &constraint_code : constraints_code) {
+                    total_sum += std::count(constraint_code.begin(),constraint_code.end(), '\n');
+                    if( sum + std::count(constraint_code.begin(),constraint_code.end(), '\n') < MAX_LINES ){
+                        sum += std::count(constraint_code.begin(),constraint_code.end(), '\n');
+                        cur_file_assembly_code += constraint_code;
+                    } else {
+                        cur_file_assembly_code +=  "\t\t\t gates_evaluation := mload(add(local_vars, GATE_EVAL_OFFSET))\n";
+                        files_assembly_code.push_back(cur_file_assembly_code);
+                        sum = std::count(constraint_code.begin(),constraint_code.end(), '\n');
+                        cur_file_assembly_code = constraint_code;
+                    }
+                }
+
+                // Print last file. Sum is available and cur_file_assembly_code is good too
+                for(std::size_t i = gate_ind + 1; 
+                    i < gate_ind + gates_num;
+                    i++
+                ){
+                    cur_file_assembly_code += generate_gate_assembly_code(profiling_params, i, bp.gates()[i], columns_rotations);
+                    cur_file_assembly_code += "\n";
+                }
+
+                files_assembly_code.push_back(cur_file_assembly_code);
+                
+                BOOST_ASSERT(files_assembly_code.size() == profiling_params.gates_lines[gate_ind]/MAX_LINES + 1);
+                for( std::size_t i = 0; i < files_assembly_code.size(); i++ ){
+                    std::string result = gate_sol_file_template;
+
+                    boost::replace_all(result, "$TEST_ID$", id);
+                    boost::replace_all(result, "$GATE_ARGUMENT_LOCAL_VARS_OFFSETS$", profiling_params.evals_offsets);
+                    boost::replace_all(result, "$GATES_GET_EVALUATIONS_FUNCTIONS$", profiling_params.get_evals_functions);
+                    boost::replace_all(result, "$CONTRACT_NUMBER$", std::to_string(gate_ind)+ "_" + std::to_string(i));
+                    boost::replace_all(result, "$GATES_ASSEMBLY_CODE$", files_assembly_code[i]);
+                    std::ofstream gate_out;
+                    gate_out.open(out_files_names[i]);
+                    gate_out << result;
+                    gate_out.close();
+                }
+            }
+
 
             static void print_multiple_gates_file(
                 int file_ind, std::ostream &gate_out, 
@@ -605,7 +761,14 @@ namespace nil {
                             first = false;
                         else
                             out << "," << std::endl;
-                        out << "\""<< id << "_gate" << i << "\"";
+                        if( profiling_params.gates_lines[i] < MAX_LINES){
+                            out << "\""<< id << "_gate" << i << "\"";
+                        } else {
+                            for(std::size_t j = 0; j < profiling_params.gates_lines[i] / MAX_LINES + 1; j++){
+                                out << "\""<< id << "_gate" << i << "_" << j << "\"";
+                                if(j != profiling_params.gates_lines[i] / MAX_LINES) out << "," << std::endl;
+                            }
+                        }
                     }
                     out << std::endl << "]" << std::endl;
                     return;
@@ -617,12 +780,25 @@ namespace nil {
                 }
 
                 out << "[" << std::endl;
-                for (size_t i = 0; i < profiling_params.gates_first.size(); i++) {
+                std::size_t cur = 0;
+                for (size_t i = 0; i < profiling_params.gates_first.size(); i++, cur++) {
                     if (first)
                         first = false;
                     else
                         out << "," << std::endl;
-                    out << "\""<< id << "_gate" << profiling_params.gates_first[i] << "\"";
+                    if( profiling_params.gates_num[cur] != 0){
+                        out << "\""<< id << "_gate" << profiling_params.gates_first[i] << "\"";
+                    } else {
+                        std::size_t j = 0;
+                        while( profiling_params.gates_num[cur] == 0 ){
+                            BOOST_ASSERT( cur < profiling_params.gates_num.size() );
+                            out << "\""<< id << "_gate" << profiling_params.gates_first[i] << "_" << j << "\"";
+                            out << "," << std::endl;
+                            cur++;
+                            j++;
+                        }
+                        out << "\""<< id << "_gate" << profiling_params.gates_first[i] << "_" << j << "\"";
+                    }
                 }
                 out << std::endl << "]" << std::endl;
             }
@@ -639,7 +815,6 @@ namespace nil {
                 auto id = out_folder_path.substr(out_folder_path.rfind("/") + 1);
 
                 profiling_params_type profiling_params(bp, optimize_gates);
-
                 if( profiling_params.optimize_gates && profiling_params.one_file_gates ){
                     std::ofstream json_out;
                     json_out.open(out_folder_path + "/linked_libs_list.json");
@@ -670,22 +845,55 @@ namespace nil {
 
                     if(!profiling_params.optimize_gates){
                         for (const auto &gate : bp.gates()) {
-                            imports << "import \"./gate" << i << ".sol\";" << std::endl;
-                            executions << "\t\t(local_vars.gates_evaluation, local_vars.theta_acc) = "<< id <<"_gate"<< i <<".evaluate_gate_be(gate_params, local_vars);" << std::endl;
-                            std::ofstream gate_out;
-                            gate_out.open(out_folder_path + "/gate" + std::to_string(i) + ".sol");
-                            print_gate_file(i, gate_out, id, profiling_params, gate_file_template, gate, columns_rotations);
-                            gate_out.close();
+                            if(profiling_params.gates_lines[i] < MAX_LINES ){
+                                imports << "import \"./gate" << i << ".sol\";" << std::endl;
+                                executions << "\t\t(local_vars.gates_evaluation, local_vars.theta_acc) = "<< id <<"_gate"<< i <<".evaluate_gate_be(gate_params, local_vars);" << std::endl;
+                                std::ofstream gate_out;
+                                gate_out.open(out_folder_path + "/gate" + std::to_string(i) + ".sol");
+                                print_gate_file(i, gate_out, id, profiling_params, gate_file_template, gate, columns_rotations);
+                                gate_out.close();
+                            } else {
+                                std::size_t j;
+                                std::vector<std::string> gates_out;
+                                for( j = 0; j < profiling_params.gates_lines[i] / MAX_LINES; j++){
+                                    imports << "import \"./gate" << i << "_" << j << ".sol\";" << std::endl;
+                                    executions << "\t\t(local_vars.gate_eval, local_vars.theta_acc) = "<< id << "_gate"<< i << "_" <<j<<".evaluate_gate_be(gate_params, local_vars);" << std::endl;
+                                    gates_out.push_back(out_folder_path + "/gate" + std::to_string(i) + "_" + std::to_string(j) + ".sol");
+                                }
+                                imports << "import \"./gate" << i << "_" << j << ".sol\";" << std::endl;
+                                executions << "\t\t(local_vars.gates_evaluation, local_vars.theta_acc) = "<< id << "_gate"<< i << "_" <<j<<".evaluate_gate_be(gate_params, local_vars);" << std::endl;
+                                gates_out.push_back(out_folder_path + "/gate" + std::to_string(i) + "_" + std::to_string(j) + ".sol");
+                                print_large_gate_files(i, gates_out, id, profiling_params, gate_file_template, gate, columns_rotations);
+                            }
                             i++;
                         }
                     } else {
-                        for (std::size_t i = 0; i < profiling_params.gates_first.size(); i++) {
-                            imports << "import \"./gate" << profiling_params.gates_first[i] << ".sol\";" << std::endl;
-                            executions << "\t\t(local_vars.gates_evaluation, local_vars.theta_acc) = " << id << "_gate"<< profiling_params.gates_first[i] <<".evaluate_gate_be(gate_params, local_vars);" << std::endl;
-                            std::ofstream gate_out;
-                            gate_out.open(out_folder_path + "/gate" + std::to_string(profiling_params.gates_first[i]) + ".sol");
-                            print_multiple_gates_file(i, gate_out, id, profiling_params, gate_file_template, bp, columns_rotations);
-                            gate_out.close();
+                        std::size_t cur = 0;
+                        for (std::size_t i = 0; i < profiling_params.gates_first.size(); i++, cur++ ) {
+                            if(profiling_params.gates_lines[profiling_params.gates_first[i]] < MAX_LINES ){
+                                imports << "import \"./gate" << profiling_params.gates_first[i] << ".sol\";" << std::endl;
+                                executions << "\t\t(local_vars.gates_evaluation, local_vars.theta_acc) = " << id << "_gate"<< profiling_params.gates_first[i] <<".evaluate_gate_be(gate_params, local_vars);" << std::endl;
+                                std::ofstream gate_out;
+                                gate_out.open(out_folder_path + "/gate" + std::to_string(profiling_params.gates_first[i]) + ".sol");
+                                print_multiple_gates_file(i, gate_out, id, profiling_params, gate_file_template, bp, columns_rotations);
+                                gate_out.close();
+                            }
+                            else{
+                                std::size_t j = 0;
+                                std::vector<std::string> gates_out;
+                                while(profiling_params.gates_num[cur] == 0){
+                                    BOOST_ASSERT(cur < profiling_params.gates_num.size());
+                                    imports << "import \"./gate" << profiling_params.gates_first[i] << "_" << j << ".sol\";" << std::endl;
+                                    executions << "\t\t(local_vars.gate_eval, local_vars.theta_acc) = "<< id << "_gate"<< profiling_params.gates_first[i] << "_" <<j<<".evaluate_gate_be(gate_params, local_vars);" << std::endl;
+                                    gates_out.push_back(out_folder_path + "/gate" + std::to_string(profiling_params.gates_first[i]) + "_" + std::to_string(j) + ".sol");
+                                    j++;
+                                    cur++;
+                                }
+                                imports << "import \"./gate" << profiling_params.gates_first[i] << "_" << j << ".sol\";" << std::endl;
+                                executions << "\t\t(local_vars.gates_evaluation, local_vars.theta_acc) = "<< id << "_gate"<< profiling_params.gates_first[i] << "_" <<j<<".evaluate_gate_be(gate_params, local_vars);" << std::endl;
+                                gates_out.push_back(out_folder_path + "/gate" + std::to_string(profiling_params.gates_first[i]) + "_" + std::to_string(j) + ".sol");
+                                print_multiple_gates_with_large_file(profiling_params.gates_first[i], profiling_params.gates_num[cur], gates_out, id, profiling_params, gate_file_template, bp, columns_rotations);                                
+                            }
                         }
                     }
                     
