@@ -634,7 +634,8 @@ namespace nil {
                 ArithmetizationType &bp,
                 columns_rotations_type &columns_rotations,
                 std::string out_folder_path = ".",
-                bool optimize_gates = false
+                bool optimize_gates = false,
+                bool generate_yul = true
             ) {
                 auto id = out_folder_path.substr(out_folder_path.rfind("/") + 1);
 
