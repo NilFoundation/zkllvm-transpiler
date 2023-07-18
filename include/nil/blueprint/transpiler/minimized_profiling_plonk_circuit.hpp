@@ -395,6 +395,31 @@ namespace nil {
                 return res.str();
             }
 
+            template<typename Vars>
+            static std::string generate_term_no_yul(
+                const profiling_params_type &profiling_params,
+                const Vars &vars,
+                columns_rotations_type &columns_rotations,
+                bool coeff_one = false
+            ) {
+                std::stringstream res;
+                bool first = true;
+
+                for( auto it = std::cbegin(vars); it != std::end(vars); it++){
+                    if( first ){
+                        first = false;
+                        if(coeff_one){
+                            res << "\t\t\tterms:=" << generate_variable(profiling_params, *it, columns_rotations) << std::endl;
+                            continue;
+                        }
+                    }
+                    res << "\t\t\tterms=mulmod(terms, ";
+                    res << generate_variable(profiling_params, *it, columns_rotations);
+                    res << ", modulus)" << std::endl;
+                }
+                return res.str();
+            }
+
             template<typename Terms>
             static std::string generate_terms(
                     const profiling_params_type &profiling_params,
@@ -420,6 +445,32 @@ namespace nil {
             }
 
 
+            template<typename Terms>
+            static std::string generate_terms_no_yul(
+                const profiling_params_type &profiling_params,
+                const Terms &terms,
+                columns_rotations_type &columns_rotations
+            ) {
+                std::stringstream res;
+                for( auto it = std::cbegin(terms); it != std::cend(terms); it++ ){
+                    if(it->coeff == FieldType::value_type::one())
+                        res << generate_term(profiling_params, it->vars, columns_rotations, true);
+                    else {
+                        res << "\t\t\tterms=0x" << std::hex << it->coeff.data << std::dec << std::endl;
+                        res << generate_term(profiling_params, it->vars, columns_rotations, false);
+                    }
+                    res << "\t\t\tlocal_vars.constraint_eval = addmod(local_vars.constraint_eval,terms,modulus)" <<std::endl;
+//                    res << "\t\t\tmstore("
+//                           "add(local_vars, CONSTRAINT_EVAL_OFFSET),"
+//                           "addmod("
+//                           "mload(add(local_vars, CONSTRAINT_EVAL_OFFSET)),";
+//                    res << "terms";
+//                    res << ",modulus))" << std::endl;
+                }
+                return res.str();
+            }
+
+
             static std::string generate_constraint(
                 const profiling_params_type &profiling_params,
                 const typename nil::crypto3::zk::snark::plonk_constraint<FieldType> &constraint,
@@ -434,6 +485,24 @@ namespace nil {
 		        crypto3::math::expression_to_non_linear_combination_visitor<variable_type> visitor;
                 auto comb = visitor.convert(constraint);
                 res << generate_terms(profiling_params, comb.terms, columns_rotations);
+                return res.str();
+            }
+
+
+            static std::string generate_constraint_no_yul(
+                const profiling_params_type &profiling_params,
+                const typename nil::crypto3::zk::snark::plonk_constraint<FieldType> &constraint,
+                columns_rotations_type &columns_rotations
+            ) {
+                using variable_type = nil::crypto3::zk::snark::plonk_variable<FieldType>;
+
+                std::stringstream res;
+                res << "\t\t\tlocal_vars.constraint_eval = 0;" << std::endl;
+
+                // Convert constraint expression to non_linear_combination.
+                crypto3::math::expression_to_non_linear_combination_visitor<variable_type> visitor;
+                auto comb = visitor.convert(constraint);
+                res << generate_terms_no_yul(profiling_params, comb.terms, columns_rotations);
                 return res.str();
             }
 
@@ -493,7 +562,7 @@ namespace nil {
             ) {
                 std::stringstream res;
                 res << "\t\t\t//Gate" << gate_ind << std::endl;
-                res << "\t\t\tmstore(add(local_vars, GATE_EVAL_OFFSET), 0)" << std::endl;
+                res << "\t\t\tlocal_vars, GATE_EVAL_OFFSET), 0)" << std::endl;
                 for (auto &constraint : gate.constraints) {
                     res << generate_constraint(profiling_params, constraint, columns_rotations);
                     res << generate_gate_evaluation();
@@ -503,6 +572,25 @@ namespace nil {
                 res << generate_gate_argument_evaluation();
                 return res.str();
             }
+
+            static std::string generate_gate_solidity_code(
+                const profiling_params_type &profiling_params,
+                int gate_ind, const GateType &gate,
+                columns_rotations_type &columns_rotations
+            ) {
+                std::stringstream res;
+                res << "\t\t\t//Gate" << gate_ind << std::endl;
+                res << "\t\t\tlocal_vars.gate_eval = 0;" << std::endl;
+                for (auto &constraint : gate.constraints) {
+                    res << generate_constraint_no_yul(profiling_params, constraint, columns_rotations);
+                    res << generate_gate_evaluation();
+                    res << generate_theta_acc();
+                }
+                res << generate_selector(gate);
+                res << generate_gate_argument_evaluation();
+                return res.str();
+            }
+
 
             static void print_gate_file(
                 int gate_ind, std::ostream &gate_out, 
@@ -596,6 +684,37 @@ namespace nil {
                 out << result;
             }
 
+
+            static void print_single_sol_file_no_yul(
+                std::ostream &out,
+                std::string id,
+                profiling_params_type &profiling_params,
+                columns_rotations_type columns_rotations,
+                std::string single_file_template,
+                ArithmetizationType &bp
+            ) {
+                std::stringstream gates_execution_str;
+                for(std::size_t i = 0; i < bp.gates().size(); i++){
+                    gates_execution_str << generate_gate_solidity_code(
+                        profiling_params, i, bp.gates()[i], columns_rotations
+                    );
+                    gates_execution_str << std::endl;
+                }
+
+                std::string result = single_file_template;
+                boost::replace_all(result, "$TEST_ID$", id);
+                boost::replace_all(result, "$GATES_NUMBER$", std::to_string(bp.gates().size()));
+                boost::replace_all(result, "$GATES_LOCAL_VARS_EVALUATION_FIELDS$", profiling_params.evaluation_fields);
+                boost::replace_all(result, "$GATES_LOAD_EVALUATIONS$", profiling_params.load_evaluation_fields);
+
+                boost::replace_all(result, "$GATE_ARGUMENT_LOCAL_VARS_OFFSETS$", profiling_params.evals_offsets);
+                boost::replace_all(result, "$GATES_GET_EVALUATIONS_FUNCTIONS$", profiling_params.get_evals_functions);
+                boost::replace_all(result, "$GATES_EXECUTION$", gates_execution_str.str());
+                out << result;
+            }
+
+
+
             static void print_linked_libraries_list(std::ostream &out, std::string id, const profiling_params_type &profiling_params) {
                 bool first = true;
                 if(!profiling_params.optimize_gates){
@@ -649,14 +768,25 @@ namespace nil {
 
                     std::ofstream gate_argument_out;
                     gate_argument_out.open(out_folder_path + "/gate_argument.sol");
-                    print_single_sol_file(
-                        gate_argument_out,
-                        id, 
-                        profiling_params,
-                        columns_rotations,
-                        single_sol_file_template,
-                        bp
-                    );
+                    if (generate_yul) {
+                        print_single_sol_file(
+                            gate_argument_out,
+                            id,
+                            profiling_params,
+                            columns_rotations,
+                            single_sol_file_template,
+                            bp
+                        );
+                    } else {
+                        print_single_sol_file_no_yul(
+                            gate_argument_out,
+                            id,
+                            profiling_params,
+                            columns_rotations,
+                            single_sol_file_template_no_yul,
+                            bp
+                            );
+                    }
                     gate_argument_out.close();
                 }else{
                     std::ofstream json_out;
