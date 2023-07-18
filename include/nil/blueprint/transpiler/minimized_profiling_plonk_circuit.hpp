@@ -395,6 +395,7 @@ namespace nil {
                 return res.str();
             }
 
+
             template<typename Vars>
             static std::string generate_term_no_yul(
                 const profiling_params_type &profiling_params,
@@ -409,16 +410,18 @@ namespace nil {
                     if( first ){
                         first = false;
                         if(coeff_one){
-                            res << "\t\t\tterms:=" << generate_variable(profiling_params, *it, columns_rotations) << std::endl;
+                            res << "\t\t\tterms=" << generate_variable(profiling_params, *it, columns_rotations) << std::endl;
                             continue;
                         }
                     }
-                    res << "\t\t\tterms=mulmod(terms, ";
+                    res <<"\t\t\tterms=mumod(terms, ",
+                    //res << "\t\t\tterms:=mulmod(terms, ";
                     res << generate_variable(profiling_params, *it, columns_rotations);
-                    res << ", modulus)" << std::endl;
+                    res << ", modulus);" << std::endl;
                 }
                 return res.str();
             }
+
 
             template<typename Terms>
             static std::string generate_terms(
@@ -454,12 +457,12 @@ namespace nil {
                 std::stringstream res;
                 for( auto it = std::cbegin(terms); it != std::cend(terms); it++ ){
                     if(it->coeff == FieldType::value_type::one())
-                        res << generate_term(profiling_params, it->vars, columns_rotations, true);
+                        res << generate_term_no_yul(profiling_params, it->vars, columns_rotations, true);
                     else {
                         res << "\t\t\tterms=0x" << std::hex << it->coeff.data << std::dec << std::endl;
-                        res << generate_term(profiling_params, it->vars, columns_rotations, false);
+                        res << generate_term_no_yul(profiling_params, it->vars, columns_rotations, false);
                     }
-                    res << "\t\t\tlocal_vars.constraint_eval = addmod(local_vars.constraint_eval,terms,modulus)" <<std::endl;
+                    res << "\t\t\tlocal_vars.constraint_eval = addmod(local_vars.constraint_eval,terms,modulus);" <<std::endl;
 //                    res << "\t\t\tmstore("
 //                           "add(local_vars, CONSTRAINT_EVAL_OFFSET),"
 //                           "addmod("
@@ -521,8 +524,28 @@ namespace nil {
                       ")\n";
             }
 
+            static std::string generate_gate_evaluation_no_yul() {
+                return "\t\t\tlocal_vars.gate_eval = addmod(local_vars.gate_eval,mulmod(local_vars.constraint_eval,theta_acc,modulus),modulus);\n";
+                return "\t\t\tmstore("
+                       "add(local_vars, GATE_EVAL_OFFSET),"
+                       "addmod("
+                       "mload(add(local_vars, GATE_EVAL_OFFSET)),"
+                       "mulmod("
+                       "mload(add(local_vars, CONSTRAINT_EVAL_OFFSET)),"
+                       "theta_acc,"
+                       "modulus"
+                       "),"
+                       "modulus"
+                       ")"
+                       ")\n";
+            }
+
             static std::string generate_theta_acc() {
                 return "\t\t\ttheta_acc := mulmod(theta_acc, theta, modulus)\n";
+            }
+
+            static std::string generate_theta_acc_no_yul() {
+                return "\t\t\ttheta_acc = mulmod(theta_acc, theta, modulus);\n";
             }
 
             static std::string generate_selector(
@@ -547,6 +570,40 @@ namespace nil {
                 return res.str();
             }
 
+            static std::string generate_selector_no_yul(
+                const nil::crypto3::zk::snark::plonk_gate<
+                    FieldType, nil::crypto3::zk::snark::plonk_constraint<FieldType>> &gate
+            ) {
+                std::stringstream res;
+                res <<"\t\t\tlocal_vars.gate_eval = mulmod(local_vars.gate_eval,"
+                       "get_selector_i("
+                    << gate.selector_index
+                    << ","
+                       "local_vars"
+                       "),"
+                       "modulus"
+                       ");"
+                    << std::endl;
+                return res.str();
+
+//                res << "\t\t\tmstore("
+//                       "add(local_vars, GATE_EVAL_OFFSET),"
+//                       "mulmod("
+//                       "mload(add(local_vars, GATE_EVAL_OFFSET)),"
+//                       "get_selector_i("
+//                    << gate.selector_index
+//                    << ","
+//                       "local_vars"
+//                       "),"
+//                       "modulus"
+//                       ")"
+//                       ")"
+//                    << std::endl;
+//                return res.str();
+            }
+
+
+
             static std::string generate_gate_argument_evaluation() {
                 return "\t\t\tgates_evaluation := addmod("
                     "gates_evaluation,"
@@ -554,6 +611,15 @@ namespace nil {
                     "modulus"
                     ")\n";
             }
+
+            static std::string generate_gate_argument_evaluation_no_yul() {
+                return "\t\t\tgates_evaluation = addmod("
+                       "gates_evaluation,"
+                       "local_vars.gate_eval,"
+                       "modulus"
+                       ")\n";
+            }
+
 
             static std::string generate_gate_assembly_code(
                 const profiling_params_type &profiling_params, 
@@ -583,11 +649,11 @@ namespace nil {
                 res << "\t\t\tlocal_vars.gate_eval = 0;" << std::endl;
                 for (auto &constraint : gate.constraints) {
                     res << generate_constraint_no_yul(profiling_params, constraint, columns_rotations);
-                    res << generate_gate_evaluation();
-                    res << generate_theta_acc();
+                    res << generate_gate_evaluation_no_yul();
+                    res << generate_theta_acc_no_yul();
                 }
-                res << generate_selector(gate);
-                res << generate_gate_argument_evaluation();
+                res << generate_selector_no_yul(gate);
+                res << generate_gate_argument_evaluation_no_yul();
                 return res.str();
             }
 
