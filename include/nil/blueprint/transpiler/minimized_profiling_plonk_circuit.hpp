@@ -193,7 +193,7 @@ namespace nil {
                     this->process();
                 }
 
-                void process(bool generate_yul = true){
+                void process(bool generate_asm = false){
                     std::stringstream evaluation_fields_str;
                     std::stringstream load_evaluation_fields_str;
                     std::stringstream evals_offsets_str;
@@ -204,13 +204,14 @@ namespace nil {
                             << this->offset_witness << std::dec << ";" << std::endl;
                         evaluation_fields_str << "\t\t//0x"  << std::hex << this->offset_witness << std::dec << std::endl;
                         if(this->rotated_witness){
-                            get_evals_functions_str << get_rotated_witness; // needs yul variant
+                            get_evals_functions_str << (generate_asm ? get_rotated_witness : get_rotated_witness_no_asm); //get_rotated_witness; // needs yul variant
                             evaluation_fields_str << field_rotated_witness_evaluations; // Ok
                             load_evaluation_fields_str << load_rotated_witness_evaluations; //OK
                         } else {
                             evaluation_fields_str << field_witness_evaluations; // Ok
                             load_evaluation_fields_str << load_witness_evaluations; // Ok
-                            get_evals_functions_str << get_witness; // needs variant
+                            get_evals_functions_str << (generate_asm ? get_witness : get_witness_no_asm); // needs variant
+                            std::cout<< "DEBUG " << get_evals_functions_str.str() <<std::endl;
                         }
                     }
 
@@ -251,15 +252,16 @@ namespace nil {
                         if(this->rotated_selector){
                             evaluation_fields_str << field_rotated_selector_evaluations; //Ok
                             load_evaluation_fields_str << load_rotated_selector_evaluations; // Ok
-                            get_evals_functions_str << get_rotated_selector; // Needs variant
+                            get_evals_functions_str << (generate_asm ? get_rotated_selector : get_rotated_selector_no_asm); // Needs variant
                         } else {
                             evaluation_fields_str << field_selector_evaluations; // Ok
                             load_evaluation_fields_str << load_selector_evaluations; // Ok
-                            get_evals_functions_str << get_selector;
+                            get_evals_functions_str << (generate_asm ? get_selector : get_selector_no_asm);
                         }
                     }
 
                     this->get_evals_functions = get_evals_functions_str.str();
+                    std::cout << "DEBUG2" << this->get_evals_functions << std::endl;
                     this->evals_offsets = evals_offsets_str.str();
                     this->evaluation_fields = evaluation_fields_str.str();
                     this->load_evaluation_fields = load_evaluation_fields_str.str();
@@ -313,7 +315,7 @@ namespace nil {
                 const profiling_params_type &profiling_params,
                 const nil::crypto3::zk::snark::plonk_variable<FieldType> &var,
                 columns_rotations_type &columns_rotations,
-                bool generate_yul = false
+                bool generate_asm = false
             ) {
                 using variable_type = nil::crypto3::zk::snark::plonk_variable<FieldType>;
 
@@ -344,8 +346,6 @@ namespace nil {
                     columns_rotations.at(global_index).find(var.rotation)
                     );
 
-
-
                     if (var.type == variable_type::witness) {
                         if( profiling_params.rotated_witness )
                             res << get_rotated_witness_call << "("<< index << "," << rotation_idx << ", local_vars)";
@@ -373,11 +373,6 @@ namespace nil {
 
                 return res.str();
             }
-
-
-
-
-
 
             template<typename Vars>
             static std::string generate_term(
@@ -419,11 +414,11 @@ namespace nil {
                     if( first ){
                         first = false;
                         if(coeff_one){
-                            res << "\t\t\tterms=" << generate_variable(profiling_params, *it, columns_rotations) << std::endl;
+                            res << "\t\t\tterms=" << generate_variable(profiling_params, *it, columns_rotations) << ";" << std::endl;
                             continue;
                         }
                     }
-                    res <<"\t\t\tterms=mumod(terms, ",
+                    res <<"\t\t\tterms=mulmod(terms, ",
                     //res << "\t\t\tterms:=mulmod(terms, ";
                     res << generate_variable(profiling_params, *it, columns_rotations);
                     res << ", modulus);" << std::endl;
@@ -468,7 +463,7 @@ namespace nil {
                     if(it->coeff == FieldType::value_type::one())
                         res << generate_term_no_yul(profiling_params, it->vars, columns_rotations, true);
                     else {
-                        res << "\t\t\tterms=0x" << std::hex << it->coeff.data << std::dec << std::endl;
+                        res << "\t\t\tterms=0x" << std::hex << it->coeff.data << std::dec << ";" << std::endl;
                         res << generate_term_no_yul(profiling_params, it->vars, columns_rotations, false);
                     }
                     res << "\t\t\tlocal_vars.constraint_eval = addmod(local_vars.constraint_eval,terms,modulus);" <<std::endl;
@@ -626,7 +621,7 @@ namespace nil {
                        "gates_evaluation,"
                        "local_vars.gate_eval,"
                        "modulus"
-                       ")\n";
+                       ");\n";
             }
 
 

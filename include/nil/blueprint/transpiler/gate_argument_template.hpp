@@ -502,7 +502,7 @@ $GATES_LOCAL_VARS_EVALUATION_FIELDS$
     uint256 constant GATES_EVALUATIONS_OFFSET = 0x40;
     uint256 constant THETA_ACC_OFFSET = 0x60;
 $GATE_ARGUMENT_LOCAL_VARS_OFFSETS$
-
+$GATES_GET_EVALUATIONS_FUNCTIONS$
     function evaluate_gates_be(
         bytes calldata blob,
         uint256 eval_proof_combined_value_offset,
@@ -523,7 +523,7 @@ $GATES_LOAD_EVALUATIONS$
         uint256 modulus = gate_params.modulus;
         uint256 theta = gate_params.theta;
 
-$GATES_GET_EVALUATIONS_FUNCTIONS$
+
 $GATES_EXECUTION$
 
     }
