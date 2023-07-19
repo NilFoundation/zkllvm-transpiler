@@ -193,7 +193,7 @@ namespace nil {
                     this->process();
                 }
 
-                void process(){
+                void process(bool generate_yul = true){
                     std::stringstream evaluation_fields_str;
                     std::stringstream load_evaluation_fields_str;
                     std::stringstream evals_offsets_str;
@@ -204,13 +204,13 @@ namespace nil {
                             << this->offset_witness << std::dec << ";" << std::endl;
                         evaluation_fields_str << "\t\t//0x"  << std::hex << this->offset_witness << std::dec << std::endl;
                         if(this->rotated_witness){
-                            get_evals_functions_str << get_rotated_witness;
-                            evaluation_fields_str << field_rotated_witness_evaluations;
-                            load_evaluation_fields_str << load_rotated_witness_evaluations;
+                            get_evals_functions_str << get_rotated_witness; // needs yul variant
+                            evaluation_fields_str << field_rotated_witness_evaluations; // Ok
+                            load_evaluation_fields_str << load_rotated_witness_evaluations; //OK
                         } else {
-                            evaluation_fields_str << field_witness_evaluations;
-                            load_evaluation_fields_str << load_witness_evaluations;
-                            get_evals_functions_str << get_witness;
+                            evaluation_fields_str << field_witness_evaluations; // Ok
+                            load_evaluation_fields_str << load_witness_evaluations; // Ok
+                            get_evals_functions_str << get_witness; // needs variant
                         }
                     }
 
@@ -219,13 +219,13 @@ namespace nil {
                         evals_offsets_str << "\tuint256 constant PUBLIC_INPUT_EVALUATIONS_OFFSET = 0x" << std::hex 
                             << this->offset_public_input << std::dec << ";" << std::endl;
                         if(this->rotated_public_input){
-                            get_evals_functions_str << get_rotated_public_input;
-                            evaluation_fields_str << field_rotated_public_input_evaluations;
-                            load_evaluation_fields_str << load_rotated_public_input_evaluations;
+                            get_evals_functions_str << get_rotated_public_input; // needs variant
+                            evaluation_fields_str << field_rotated_public_input_evaluations; // Ok
+                            load_evaluation_fields_str << load_rotated_public_input_evaluations; // Ok
                         } else {
-                            evaluation_fields_str << field_public_input_evaluations;
-                            load_evaluation_fields_str << load_public_input_evaluations;
-                            get_evals_functions_str << get_public_input;
+                            evaluation_fields_str << field_public_input_evaluations; // Ok
+                            load_evaluation_fields_str << load_public_input_evaluations; // Ok
+                            get_evals_functions_str << get_public_input; // Needs variant
                         }
                     }
 
@@ -234,13 +234,13 @@ namespace nil {
                         evals_offsets_str << "\tuint256 constant CONSTANT_EVALUATIONS_OFFSET = 0x" << std::hex 
                             << this->offset_constant << std::dec << ";" << std::endl;
                         if(this->rotated_constant){
-                            evaluation_fields_str << field_rotated_constant_evaluations;
-                            load_evaluation_fields_str << load_rotated_constant_evaluations;
-                            get_evals_functions_str << get_rotated_constant;
+                            evaluation_fields_str << field_rotated_constant_evaluations; // Ok
+                            load_evaluation_fields_str << load_rotated_constant_evaluations; // Ok
+                            get_evals_functions_str << get_rotated_constant; // Needs variant
                         } else {
-                            get_evals_functions_str << get_constant;
-                            evaluation_fields_str << field_constant_evaluations;
-                            load_evaluation_fields_str << load_constant_evaluations;
+                            get_evals_functions_str << get_constant; // Needs variant
+                            evaluation_fields_str << field_constant_evaluations; // Ok
+                            load_evaluation_fields_str << load_constant_evaluations; // Ok
                         }
                     }
 
@@ -249,12 +249,12 @@ namespace nil {
                         evals_offsets_str << "\tuint256 constant SELECTOR_EVALUATIONS_OFFSET = 0x" << std::hex 
                             << this->offset_selector << std::dec << ";" << std::endl;
                         if(this->rotated_selector){
-                            evaluation_fields_str << field_rotated_selector_evaluations;
-                            load_evaluation_fields_str << load_rotated_selector_evaluations;
-                            get_evals_functions_str << get_rotated_selector;
+                            evaluation_fields_str << field_rotated_selector_evaluations; //Ok
+                            load_evaluation_fields_str << load_rotated_selector_evaluations; // Ok
+                            get_evals_functions_str << get_rotated_selector; // Needs variant
                         } else {
-                            evaluation_fields_str << field_selector_evaluations;
-                            load_evaluation_fields_str << load_selector_evaluations;
+                            evaluation_fields_str << field_selector_evaluations; // Ok
+                            load_evaluation_fields_str << load_selector_evaluations; // Ok
                             get_evals_functions_str << get_selector;
                         }
                     }
@@ -312,7 +312,8 @@ namespace nil {
             static std::string generate_variable(
                 const profiling_params_type &profiling_params,
                 const nil::crypto3::zk::snark::plonk_variable<FieldType> &var,
-                columns_rotations_type &columns_rotations
+                columns_rotations_type &columns_rotations,
+                bool generate_yul = false
             ) {
                 using variable_type = nil::crypto3::zk::snark::plonk_variable<FieldType>;
 
@@ -343,32 +344,40 @@ namespace nil {
                     columns_rotations.at(global_index).find(var.rotation)
                     );
 
-                if (var.type == variable_type::witness) {
-                    if( profiling_params.rotated_witness )
-                        res << get_rotated_witness_call << "("<< index << "," << rotation_idx << ", local_vars)";
-                    else
-                        res << get_witness_call << "("<< index << ", local_vars)";
-                }
-                if (var.type == variable_type::public_input) {
-                    if( profiling_params.rotated_public_input )
-                        res << get_rotated_public_input_call << "("<< index << ","<< rotation_idx << ", local_vars)";
-                    else 
-                        res << get_public_input_call << "("<< index << ", local_vars)";
-                }
-                if (var.type == variable_type::constant) {
-                    if( profiling_params.rotated_public_input )
-                        res << get_rotated_constant_call << "("<< index << ","<< rotation_idx << ", local_vars)";
-                    else 
-                        res << get_constant_call << "("<< index << ", local_vars)";
-                }
-                if (var.type == variable_type::selector) {
-                    if( profiling_params.rotated_selector )
-                        res << get_rotated_selector_call << "("<< index << ","<< rotation_idx << ", local_vars)";
-                    else 
-                        res << get_selector_call << "("<< index << ", local_vars)";
-                }
+
+
+                    if (var.type == variable_type::witness) {
+                        if( profiling_params.rotated_witness )
+                            res << get_rotated_witness_call << "("<< index << "," << rotation_idx << ", local_vars)";
+                        else
+                            res << get_witness_call << "("<< index << ", local_vars)";
+                    }
+                    if (var.type == variable_type::public_input) {
+                        if( profiling_params.rotated_public_input )
+                            res << get_rotated_public_input_call << "("<< index << ","<< rotation_idx << ", local_vars)";
+                        else
+                            res << get_public_input_call << "("<< index << ", local_vars)";
+                    }
+                    if (var.type == variable_type::constant) {
+                        if( profiling_params.rotated_public_input )
+                            res << get_rotated_constant_call << "("<< index << ","<< rotation_idx << ", local_vars)";
+                        else
+                            res << get_constant_call << "("<< index << ", local_vars)";
+                    }
+                    if (var.type == variable_type::selector) {
+                        if( profiling_params.rotated_selector )
+                            res << get_rotated_selector_call << "("<< index << ","<< rotation_idx << ", local_vars)";
+                        else
+                            res << get_selector_call << "("<< index << ", local_vars)";
+                    }
+
                 return res.str();
             }
+
+
+
+
+
 
             template<typename Vars>
             static std::string generate_term(

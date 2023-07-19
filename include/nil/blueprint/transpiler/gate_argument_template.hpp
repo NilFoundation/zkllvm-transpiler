@@ -186,6 +186,16 @@ std::string get_rotated_witness = R"(
                 )
             }
 )";
+
+//ptr = local vars
+std::string get_rotated_witness_no_asm = R"(
+            function get_witness_i_by_rotation_idx(uint256 idx, uint256 rot_idx,local_vars_type memory local_var) returns (uint256 result) {
+                return local_var.witness_evaluations[idx][rot_idx];
+            }
+)";
+
+
+
 std::string get_rotated_witness_call = "get_witness_i_by_rotation_idx";
 
 std::string get_rotated_public_input = R"(
@@ -198,6 +208,15 @@ std::string get_rotated_public_input = R"(
                 )
             }
 )";
+
+//TODO
+std::string get_rotated_public_input_no_asm = R"(
+            function get_public_input_i_by_rotation_idx(uint256 idx, uint256 rot_idx,local_vars_type memory local_var) returns (uint256 result)  {
+
+            }
+)";
+
+
 std::string get_rotated_public_input_call = "get_public_input_i_by_rotation_idx";
 
 std::string get_rotated_constant = R"(
@@ -208,6 +227,13 @@ std::string get_rotated_constant = R"(
                         mul(0x20, rot_idx)
                     )
                 )
+            }
+)";
+
+//TODO
+std::string get_rotated_constant_no_asm = R"(
+            function get_constant_i_by_rotation_idx(uint256 idx, uint256 rot_idx,local_vars_type memory local_var) returns (uint256 result) {
+
             }
 )";
 std::string get_rotated_constant_call = "get_constant_i_by_rotation_idx";
@@ -223,6 +249,13 @@ std::string get_rotated_selector = R"(
                 )
             }
 )";
+
+std::string get_rotated_selector_no_asm = R"(
+            function get_selector_i_by_rotation_idx(uint256 idx, uint256 rot_idx,local_vars_type memory local_var) returns (uint256 result){
+                return local_var.selector_evaluations[idx][rot_idx];
+            }
+)";
+
 std::string get_rotated_selector_call = "get_selector_i_by_rotation_idx";
 
 // Functions for extracting evaluations for non-rotated columns
@@ -231,6 +264,12 @@ std::string get_witness = R"(
                 result := mload(add(add(mload(add(ptr, WITNESS_EVALUATIONS_OFFSET)), 0x20), mul(0x20, idx)))
             }
 )";
+std::string get_witness_no_asm = R"(
+            function get_witness_i(uint256 idx, local_vars_type memory local_var) returns (uint256 result) {
+               return local_var.witness_evaluations[idx];
+            }
+)";
+
 std::string get_witness_call = "get_witness_i";
 
 
@@ -239,6 +278,14 @@ std::string get_public_input = R"(
                 result := mload(add(add(mload(add(ptr, PUBLIC_INPUT_EVALUATIONS_OFFSET)), 0x20), mul(0x20, idx)))
             }
 )";
+//TODO
+std::string get_public_input_no_asm = R"(
+            function get_public_input_i(uint256 idx, local_vars_type memory local_var) returns (uint256 result) {
+            }
+)";
+
+
+
 std::string get_public_input_call = "get_public_input_i";
 
 std::string get_constant = R"(
@@ -246,11 +293,24 @@ std::string get_constant = R"(
                 result := mload(add(add(mload(add(ptr, CONSTANT_EVALUATIONS_OFFSET)), 0x20), mul(0x20, idx)))
             }
 )";
+//TODO
+std::string get_constant_no_asm = R"(
+            function get_constant_i(idx, ptr) returns (uint256 result) {
+
+            }
+)";
+
 std::string get_constant_call = "get_constant_i";
 
 std::string get_selector = R"(
             function get_selector_i(idx, ptr) -> result {
                 result := mload(add(add(mload(add(ptr, SELECTOR_EVALUATIONS_OFFSET)), 0x20), mul(0x20, idx)))
+            }
+)";
+
+std::string get_selector_no_asm = R"(
+            function get_selector_i(uint256 idx, local_vars_type memory local_var) returns (uint256 result) {
+                return local_var.selector_evaluations[idx];
             }
 )";
 std::string get_selector_call = "get_selector_i";
