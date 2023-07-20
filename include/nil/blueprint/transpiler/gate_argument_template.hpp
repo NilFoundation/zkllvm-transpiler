@@ -265,9 +265,9 @@ std::string get_witness = R"(
             }
 )";
 std::string get_witness_no_asm = R"(
-            function get_witness_i(uint256 idx, local_vars_type memory local_var) returns (uint256 result) {
-               return local_var.witness_evaluations[idx];
-            }
+        function get_witness_i(uint256 idx, local_vars_type memory local_var)  pure internal returns (uint256 result) {
+            return local_var.witness_evaluations[idx];
+        }
 )";
 
 std::string get_witness_call = "get_witness_i";
@@ -280,8 +280,8 @@ std::string get_public_input = R"(
 )";
 //TODO
 std::string get_public_input_no_asm = R"(
-            function get_public_input_i(uint256 idx, local_vars_type memory local_var) returns (uint256 result) {
-            }
+        function get_public_input_i(uint256 idx, local_vars_type memory local_var) returns (uint256 result) {
+        }
 )";
 
 
@@ -289,15 +289,14 @@ std::string get_public_input_no_asm = R"(
 std::string get_public_input_call = "get_public_input_i";
 
 std::string get_constant = R"(
-            function get_constant_i(idx, ptr) -> result {
-                result := mload(add(add(mload(add(ptr, CONSTANT_EVALUATIONS_OFFSET)), 0x20), mul(0x20, idx)))
-            }
+        function get_constant_i(idx, ptr) -> result {
+            result := mload(add(add(mload(add(ptr, CONSTANT_EVALUATIONS_OFFSET)), 0x20), mul(0x20, idx)))
+        }
 )";
 //TODO
 std::string get_constant_no_asm = R"(
-            function get_constant_i(idx, ptr) returns (uint256 result) {
-
-            }
+        function get_constant_i(idx, ptr) returns (uint256 result) {
+         }
 )";
 
 std::string get_constant_call = "get_constant_i";
@@ -309,9 +308,9 @@ std::string get_selector = R"(
 )";
 
 std::string get_selector_no_asm = R"(
-            function get_selector_i(uint256 idx, local_vars_type memory local_var) returns (uint256 result) {
-                return local_var.selector_evaluations[idx];
-            }
+        function get_selector_i(uint256 idx, local_vars_type memory local_var)  pure internal returns (uint256 result) {
+            return local_var.selector_evaluations[idx];
+        }
 )";
 std::string get_selector_call = "get_selector_i";
 
@@ -452,7 +451,7 @@ $GATES_EXECUTION$
 
 
 
-std::string single_sol_file_template_no_yul = R"(
+std::string single_sol_file_template_no_asm = R"(
 // SPDX-License-Identifier: Apache-2.0.
 //---------------------------------------------------------------------------//
 // Copyright (c) 2022 Mikhail Komarov <nemo@nil.foundation>
