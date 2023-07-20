@@ -345,30 +345,30 @@ namespace nil {
                     columns_rotations.at(global_index).find(var.rotation)
                     );
 
-                    if (var.type == variable_type::witness) {
-                        if( profiling_params.rotated_witness )
-                            res << get_rotated_witness_call << "("<< index << "," << rotation_idx << ", local_vars)";
-                        else
-                            res << get_witness_call << "("<< index << ", local_vars)";
-                    }
-                    if (var.type == variable_type::public_input) {
-                        if( profiling_params.rotated_public_input )
-                            res << get_rotated_public_input_call << "("<< index << ","<< rotation_idx << ", local_vars)";
-                        else
-                            res << get_public_input_call << "("<< index << ", local_vars)";
-                    }
-                    if (var.type == variable_type::constant) {
-                        if( profiling_params.rotated_public_input )
-                            res << get_rotated_constant_call << "("<< index << ","<< rotation_idx << ", local_vars)";
-                        else
-                            res << get_constant_call << "("<< index << ", local_vars)";
-                    }
-                    if (var.type == variable_type::selector) {
-                        if( profiling_params.rotated_selector )
-                            res << get_rotated_selector_call << "("<< index << ","<< rotation_idx << ", local_vars)";
-                        else
-                            res << get_selector_call << "("<< index << ", local_vars)";
-                    }
+                if (var.type == variable_type::witness) {
+                    if( profiling_params.rotated_witness )
+                        res << get_rotated_witness_call << "("<< index << "," << rotation_idx << ", local_vars)";
+                    else
+                        res << get_witness_call << "("<< index << ", local_vars)";
+                }
+                if (var.type == variable_type::public_input) {
+                    if( profiling_params.rotated_public_input )
+                        res << get_rotated_public_input_call << "("<< index << ","<< rotation_idx << ", local_vars)";
+                    else
+                        res << get_public_input_call << "("<< index << ", local_vars)";
+                }
+                if (var.type == variable_type::constant) {
+                    if( profiling_params.rotated_public_input )
+                        res << get_rotated_constant_call << "("<< index << ","<< rotation_idx << ", local_vars)";
+                    else
+                        res << get_constant_call << "("<< index << ", local_vars)";
+                }
+                if (var.type == variable_type::selector) {
+                    if( profiling_params.rotated_selector )
+                        res << get_rotated_selector_call << "("<< index << ","<< rotation_idx << ", local_vars)";
+                    else
+                        res << get_selector_call << "("<< index << ", local_vars)";
+                }
 
                 return res.str();
             }
@@ -409,34 +409,6 @@ namespace nil {
                 }
                 return res.str();
             }
-
-
-//            template<typename Vars>
-//            static std::string generate_term_no_yul(
-//                const profiling_params_type &profiling_params,
-//                const Vars &vars,
-//                columns_rotations_type &columns_rotations,
-//                bool coeff_one = false
-//            ) {
-//                std::stringstream res;
-//                bool first = true;
-//
-//                for( auto it = std::cbegin(vars); it != std::end(vars); it++){
-//                    if( first ){
-//                        first = false;
-//                        if(coeff_one){
-//                            res << "\t\t\tterms=" << generate_variable(profiling_params, *it, columns_rotations) << ";" << std::endl;
-//                            continue;
-//                        }
-//                    }
-//                    res <<"\t\t\tterms=mulmod(terms, ",
-//                    //res << "\t\t\tterms:=mulmod(terms, ";
-//                    res << generate_variable(profiling_params, *it, columns_rotations);
-//                    res << ", modulus);" << std::endl;
-//                }
-//                return res.str();
-//            }
-
 
             template<typename Terms>
             static std::string generate_terms(
