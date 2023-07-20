@@ -187,7 +187,6 @@ std::string get_rotated_witness = R"(
             }
 )";
 
-//ptr = local vars
 std::string get_rotated_witness_no_asm = R"(
             function get_witness_i_by_rotation_idx(uint256 idx, uint256 rot_idx,local_vars_type memory local_var) returns (uint256 result) {
                 return local_var.witness_evaluations[idx][rot_idx];
@@ -290,7 +289,7 @@ std::string get_constant = R"(
                 result := mload(add(add(mload(add(ptr, CONSTANT_EVALUATIONS_OFFSET)), 0x20), mul(0x20, idx)))
             }
 )";
-//TODO
+
 std::string get_constant_no_asm = R"(
         function get_constant_i(uint256 idx, local_vars_type memory local_var) internal pure returns (uint256 result) {
             return local_var.constant_evaluations[idx]
@@ -306,7 +305,7 @@ std::string get_selector = R"(
 )";
 
 std::string get_selector_no_asm = R"(
-        function get_selector_i(uint256 idx, local_vars_type memory local_var)  pure internal returns (uint256 result) {
+        function get_selector_i(uint256 idx, local_vars_type memory local_var)  internal pure returns (uint256 result) {
             return local_var.selector_evaluations[idx];
         }
 )";

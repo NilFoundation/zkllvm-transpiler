@@ -220,13 +220,13 @@ namespace nil {
                         evals_offsets_str << "\tuint256 constant PUBLIC_INPUT_EVALUATIONS_OFFSET = 0x" << std::hex 
                             << this->offset_public_input << std::dec << ";" << std::endl;
                         if(this->rotated_public_input){
-                            get_evals_functions_str << get_rotated_public_input; // needs variant
+                            get_evals_functions_str << (generate_asm ? get_rotated_public_input: get_rotated_public_input_no_asm);
                             evaluation_fields_str << field_rotated_public_input_evaluations;
                             load_evaluation_fields_str << load_rotated_public_input_evaluations;
                         } else {
                             evaluation_fields_str << field_public_input_evaluations;
                             load_evaluation_fields_str << load_public_input_evaluations;
-                            get_evals_functions_str << get_public_input; // Needs variant
+                            get_evals_functions_str << (generate_asm ? get_public_input : get_public_input_no_asm);
                         }
                     }
 
@@ -237,9 +237,9 @@ namespace nil {
                         if(this->rotated_constant){
                             evaluation_fields_str << field_rotated_constant_evaluations;
                             load_evaluation_fields_str << load_rotated_constant_evaluations;
-                            get_evals_functions_str << get_rotated_constant; // Needs variant
+                            get_evals_functions_str << (generate_asm ? get_rotated_constant : get_rotated_constant_no_asm);
                         } else {
-                            get_evals_functions_str << get_constant; // Needs variant
+                            get_evals_functions_str << (generate_asm ? get_constant : get_constant_no_asm);
                             evaluation_fields_str << field_constant_evaluations;
                             load_evaluation_fields_str << load_constant_evaluations;
                         }
@@ -252,7 +252,7 @@ namespace nil {
                         if(this->rotated_selector){
                             evaluation_fields_str << field_rotated_selector_evaluations;
                             load_evaluation_fields_str << load_rotated_selector_evaluations;
-                            get_evals_functions_str << (generate_asm ? get_rotated_selector : get_rotated_selector_no_asm); // Needs variant
+                            get_evals_functions_str << (generate_asm ? get_rotated_selector : get_rotated_selector_no_asm);
                         } else {
                             evaluation_fields_str << field_selector_evaluations;
                             load_evaluation_fields_str << load_selector_evaluations;
@@ -314,7 +314,7 @@ namespace nil {
                 const profiling_params_type &profiling_params,
                 const nil::crypto3::zk::snark::plonk_variable<FieldType> &var,
                 columns_rotations_type &columns_rotations,
-                bool generate_asm = false
+                bool generate_asm = true
             ) {
                 using variable_type = nil::crypto3::zk::snark::plonk_variable<FieldType>;
 
@@ -652,7 +652,7 @@ namespace nil {
                     gates_execution_str << std::endl;
                 }
 
-                std::string result = (generate_asm ? single_sol_file_template : single_sol_file_template_no_asm);
+                std::string result = (generate_asm ? single_file_template : single_sol_file_template_no_asm);
                 boost::replace_all(result, "$TEST_ID$", id);
                 boost::replace_all(result, "$GATES_NUMBER$", std::to_string(bp.gates().size()));
                 boost::replace_all(result, "$GATES_LOCAL_VARS_EVALUATION_FIELDS$", profiling_params.evaluation_fields);
