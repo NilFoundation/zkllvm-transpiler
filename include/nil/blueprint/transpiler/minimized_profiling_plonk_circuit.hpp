@@ -472,33 +472,6 @@ namespace nil {
                 return res.str();
             }
 
-
-            template<typename Terms>
-            static std::string generate_terms_no_yul(
-                const profiling_params_type &profiling_params,
-                const Terms &terms,
-                columns_rotations_type &columns_rotations
-            ) {
-                std::stringstream res;
-                for( auto it = std::cbegin(terms); it != std::cend(terms); it++ ){
-                    if(it->coeff == FieldType::value_type::one())
-                        res << generate_term_no_yul(profiling_params, it->vars, columns_rotations, true);
-                    else {
-                        res << "\t\t\tterms=0x" << std::hex << it->coeff.data << std::dec << ";" << std::endl;
-                        res << generate_term_no_yul(profiling_params, it->vars, columns_rotations, false);
-                    }
-                    res << "\t\t\tlocal_vars.constraint_eval = addmod(local_vars.constraint_eval,terms,modulus);" <<std::endl;
-//                    res << "\t\t\tmstore("
-//                           "add(local_vars, CONSTRAINT_EVAL_OFFSET),"
-//                           "addmod("
-//                           "mload(add(local_vars, CONSTRAINT_EVAL_OFFSET)),";
-//                    res << "terms";
-//                    res << ",modulus))" << std::endl;
-                }
-                return res.str();
-            }
-
-
             static std::string generate_constraint(
                 const profiling_params_type &profiling_params,
                 const typename nil::crypto3::zk::snark::plonk_constraint<FieldType> &constraint,
@@ -522,23 +495,6 @@ namespace nil {
             }
 
 
-//            static std::string generate_constraint_no_yul(
-//                const profiling_params_type &profiling_params,
-//                const typename nil::crypto3::zk::snark::plonk_constraint<FieldType> &constraint,
-//                columns_rotations_type &columns_rotations
-//            ) {
-//                using variable_type = nil::crypto3::zk::snark::plonk_variable<FieldType>;
-//
-//                std::stringstream res;
-//                res << "\t\t\tlocal_vars.constraint_eval = 0;" << std::endl;
-//
-//                // Convert constraint expression to non_linear_combination.
-//                crypto3::math::expression_to_non_linear_combination_visitor<variable_type> visitor;
-//                auto comb = visitor.convert(constraint);
-//                res << generate_terms_no_yul(profiling_params, comb.terms, columns_rotations);
-//                return res.str();
-//            }
-
             static std::string generate_gate_evaluation(bool generate_asm = true) {
                 if (generate_asm){
                     return "\t\t\tmstore("
@@ -557,32 +513,12 @@ namespace nil {
                 return "\t\t\tlocal_vars.gate_eval = addmod(local_vars.gate_eval,mulmod(local_vars.constraint_eval,theta_acc,modulus),modulus);\n";
             }
 
-//            static std::string generate_gate_evaluation_no_yul() {
-//                return "\t\t\tlocal_vars.gate_eval = addmod(local_vars.gate_eval,mulmod(local_vars.constraint_eval,theta_acc,modulus),modulus);\n";
-//                return "\t\t\tmstore("
-//                       "add(local_vars, GATE_EVAL_OFFSET),"
-//                       "addmod("
-//                       "mload(add(local_vars, GATE_EVAL_OFFSET)),"
-//                       "mulmod("
-//                       "mload(add(local_vars, CONSTRAINT_EVAL_OFFSET)),"
-//                       "theta_acc,"
-//                       "modulus"
-//                       "),"
-//                       "modulus"
-//                       ")"
-//                       ")\n";
-//            }
-
             static std::string generate_theta_acc(bool generate_asm) {
                 if (generate_asm){
                     return "\t\t\ttheta_acc := mulmod(theta_acc, theta, modulus)\n";
                 }
                 return "\t\t\ttheta_acc = mulmod(theta_acc, theta, modulus);\n";
             }
-
-//            static std::string generate_theta_acc_no_yul() {
-//                return "\t\t\ttheta_acc = mulmod(theta_acc, theta, modulus);\n";
-//            }
 
             static std::string generate_selector(
                 const nil::crypto3::zk::snark::plonk_gate<
@@ -619,40 +555,6 @@ namespace nil {
                 return res.str();
             }
 
-//            static std::string generate_selector_no_yul(
-//                const nil::crypto3::zk::snark::plonk_gate<
-//                    FieldType, nil::crypto3::zk::snark::plonk_constraint<FieldType>> &gate
-//            ) {
-//                std::stringstream res;
-//                res <<"\t\t\tlocal_vars.gate_eval = mulmod(local_vars.gate_eval,"
-//                       "get_selector_i("
-//                    << gate.selector_index
-//                    << ","
-//                       "local_vars"
-//                       "),"
-//                       "modulus"
-//                       ");"
-//                    << std::endl;
-//                return res.str();
-
-//                res << "\t\t\tmstore("
-//                       "add(local_vars, GATE_EVAL_OFFSET),"
-//                       "mulmod("
-//                       "mload(add(local_vars, GATE_EVAL_OFFSET)),"
-//                       "get_selector_i("
-//                    << gate.selector_index
-//                    << ","
-//                       "local_vars"
-//                       "),"
-//                       "modulus"
-//                       ")"
-//                       ")"
-//                    << std::endl;
-//                return res.str();
-//            }
-
-
-
             static std::string generate_gate_argument_evaluation(bool generate_asm= true) {
                 if(generate_asm) {
                     return "\t\t\tgates_evaluation := addmod("
@@ -668,15 +570,6 @@ namespace nil {
                        ");\n";
 
             }
-
-//            static std::string generate_gate_argument_evaluation_no_yul() {
-//                return "\t\t\tgates_evaluation = addmod("
-//                       "gates_evaluation,"
-//                       "local_vars.gate_eval,"
-//                       "modulus"
-//                       ");\n";
-//            }
-
 
             static std::string generate_gate_assembly_code(
                 const profiling_params_type &profiling_params, 
@@ -702,25 +595,6 @@ namespace nil {
                 res << generate_gate_argument_evaluation(generate_asm);
                 return res.str();
             }
-
-//            static std::string generate_gate_solidity_code(
-//                const profiling_params_type &profiling_params,
-//                int gate_ind, const GateType &gate,
-//                columns_rotations_type &columns_rotations
-//            ) {
-//                std::stringstream res;
-//                res << "\t\t\t//Gate" << gate_ind << std::endl;
-//                res << "\t\t\tlocal_vars.gate_eval = 0;" << std::endl;
-//                for (auto &constraint : gate.constraints) {
-//                    res << generate_constraint_no_yul(profiling_params, constraint, columns_rotations);
-//                    res << generate_gate_evaluation_no_yul();
-//                    res << generate_theta_acc_no_yul();
-//                }
-//                res << generate_selector_no_yul(gate);
-//                res << generate_gate_argument_evaluation_no_yul();
-//                return res.str();
-//            }
-
 
             static void print_gate_file(
                 int gate_ind, std::ostream &gate_out, 
@@ -814,37 +688,6 @@ namespace nil {
                 boost::replace_all(result, "$GATES_EXECUTION$", gates_execution_str.str());
                 out << result;
             }
-
-
-//            static void print_single_sol_file_no_yul(
-//                std::ostream &out,
-//                std::string id,
-//                profiling_params_type &profiling_params,
-//                columns_rotations_type columns_rotations,
-//                std::string single_file_template,
-//                ArithmetizationType &bp
-//            ) {
-//                std::stringstream gates_execution_str;
-//                for(std::size_t i = 0; i < bp.gates().size(); i++){
-//                    gates_execution_str << generate_gate_solidity_code(
-//                        profiling_params, i, bp.gates()[i], columns_rotations
-//                    );
-//                    gates_execution_str << std::endl;
-//                }
-//
-//                std::string result = single_file_template;
-//                boost::replace_all(result, "$TEST_ID$", id);
-//                boost::replace_all(result, "$GATES_NUMBER$", std::to_string(bp.gates().size()));
-//                boost::replace_all(result, "$GATES_LOCAL_VARS_EVALUATION_FIELDS$", profiling_params.evaluation_fields);
-//                boost::replace_all(result, "$GATES_LOAD_EVALUATIONS$", profiling_params.load_evaluation_fields);
-//
-//                boost::replace_all(result, "$GATE_ARGUMENT_LOCAL_VARS_OFFSETS$", profiling_params.evals_offsets);
-//                boost::replace_all(result, "$GATES_GET_EVALUATIONS_FUNCTIONS$", profiling_params.get_evals_functions);
-//                boost::replace_all(result, "$GATES_EXECUTION$", gates_execution_str.str());
-//                out << result;
-//            }
-
-
 
             static void print_linked_libraries_list(std::ostream &out, std::string id, const profiling_params_type &profiling_params) {
                 bool first = true;
