@@ -209,10 +209,9 @@ std::string get_rotated_public_input = R"(
             }
 )";
 
-//TODO
 std::string get_rotated_public_input_no_asm = R"(
-            function get_public_input_i_by_rotation_idx(uint256 idx, uint256 rot_idx,local_vars_type memory local_var) returns (uint256 result)  {
-
+            function get_public_input_i_by_rotation_idx(uint256 idx, uint256 rot_idx,local_vars_type memory local_var) internal pure returns (uint256 result)  {
+                return local_var.public_input_evaluations[idx][rot_idx];
             }
 )";
 
@@ -230,10 +229,9 @@ std::string get_rotated_constant = R"(
             }
 )";
 
-//TODO
 std::string get_rotated_constant_no_asm = R"(
-            function get_constant_i_by_rotation_idx(uint256 idx, uint256 rot_idx,local_vars_type memory local_var) returns (uint256 result) {
-
+            function get_constant_i_by_rotation_idx(uint256 idx, uint256 rot_idx,local_vars_type memory local_var) internal pure returns (uint256 result) {
+                return local_var.constant_evaluations[idx][rot_idx];
             }
 )";
 std::string get_rotated_constant_call = "get_constant_i_by_rotation_idx";
@@ -278,24 +276,24 @@ std::string get_public_input = R"(
                 result := mload(add(add(mload(add(ptr, PUBLIC_INPUT_EVALUATIONS_OFFSET)), 0x20), mul(0x20, idx)))
             }
 )";
-//TODO
+
 std::string get_public_input_no_asm = R"(
-        function get_public_input_i(uint256 idx, local_vars_type memory local_var) returns (uint256 result) {
+        function get_public_input_i(uint256 idx, local_vars_type memory local_var) internal pure returns (uint256 result) {
+            return local_var.public_input_evaluations[idx];
         }
 )";
-
-
 
 std::string get_public_input_call = "get_public_input_i";
 
 std::string get_constant = R"(
-        function get_constant_i(idx, ptr) -> result {
-            result := mload(add(add(mload(add(ptr, CONSTANT_EVALUATIONS_OFFSET)), 0x20), mul(0x20, idx)))
-        }
+            function get_constant_i(idx, ptr) -> result {
+                result := mload(add(add(mload(add(ptr, CONSTANT_EVALUATIONS_OFFSET)), 0x20), mul(0x20, idx)))
+            }
 )";
 //TODO
 std::string get_constant_no_asm = R"(
-        function get_constant_i(idx, ptr) returns (uint256 result) {
+        function get_constant_i(uint256 idx, local_vars_type memory local_var) internal pure returns (uint256 result) {
+            return local_var.constant_evaluations[idx]
          }
 )";
 
@@ -449,8 +447,6 @@ $GATES_EXECUTION$
 )";
 
 
-
-
 std::string single_sol_file_template_no_asm = R"(
 // SPDX-License-Identifier: Apache-2.0.
 //---------------------------------------------------------------------------//
@@ -528,10 +524,6 @@ $GATES_EXECUTION$
     }
 }
 )";
-
-
-
-
     }
 }
 

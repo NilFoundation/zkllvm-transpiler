@@ -388,10 +388,13 @@ namespace nil {
                     if( first ){
                         first = false;
                         if(coeff_one){
-                            if(generate_asm)
-                                res << "\t\t\tterms:=" << generate_variable(profiling_params, *it, columns_rotations) << std::endl;
-                            else
-                                res << "\t\t\tterms=" << generate_variable(profiling_params, *it, columns_rotations) << ";" << std::endl;
+                            if(generate_asm) {
+                                res << "\t\t\tterms:=" << generate_variable(profiling_params, *it, columns_rotations)
+                                    << std::endl;
+                            }else {
+                                res << "\t\t\tterms=" << generate_variable(profiling_params, *it, columns_rotations)
+                                    << ";" << std::endl;
+                            }
                             continue;
                         }
                     }
