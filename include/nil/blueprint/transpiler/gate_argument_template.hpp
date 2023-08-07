@@ -186,6 +186,13 @@ std::string get_rotated_witness = R"(
                 )
             }
 )";
+
+std::string get_rotated_witness_no_asm = R"(
+            function get_witness_i_by_rotation_idx(uint256 idx, uint256 rot_idx,local_vars_type memory local_var) returns (uint256 result) {
+                return local_var.witness_evaluations[idx][rot_idx];
+            }
+)";
+
 std::string get_rotated_witness_call = "get_witness_i_by_rotation_idx";
 
 std::string get_rotated_public_input = R"(
@@ -198,6 +205,13 @@ std::string get_rotated_public_input = R"(
                 )
             }
 )";
+
+std::string get_rotated_public_input_no_asm = R"(
+            function get_public_input_i_by_rotation_idx(uint256 idx, uint256 rot_idx,local_vars_type memory local_var) internal pure returns (uint256 result)  {
+                return local_var.public_input_evaluations[idx][rot_idx];
+            }
+)";
+
 std::string get_rotated_public_input_call = "get_public_input_i_by_rotation_idx";
 
 std::string get_rotated_constant = R"(
@@ -210,6 +224,13 @@ std::string get_rotated_constant = R"(
                 )
             }
 )";
+
+std::string get_rotated_constant_no_asm = R"(
+            function get_constant_i_by_rotation_idx(uint256 idx, uint256 rot_idx,local_vars_type memory local_var) internal pure returns (uint256 result) {
+                return local_var.constant_evaluations[idx][rot_idx];
+            }
+)";
+
 std::string get_rotated_constant_call = "get_constant_i_by_rotation_idx";
 
 
@@ -223,6 +244,13 @@ std::string get_rotated_selector = R"(
                 )
             }
 )";
+
+std::string get_rotated_selector_no_asm = R"(
+            function get_selector_i_by_rotation_idx(uint256 idx, uint256 rot_idx,local_vars_type memory local_var) returns (uint256 result){
+                return local_var.selector_evaluations[idx][rot_idx];
+            }
+)";
+
 std::string get_rotated_selector_call = "get_selector_i_by_rotation_idx";
 
 // Functions for extracting evaluations for non-rotated columns
@@ -231,6 +259,13 @@ std::string get_witness = R"(
                 result := mload(add(add(mload(add(ptr, WITNESS_EVALUATIONS_OFFSET)), 0x20), mul(0x20, idx)))
             }
 )";
+
+std::string get_witness_no_asm = R"(
+        function get_witness_i(uint256 idx, local_vars_type memory local_var)  pure internal returns (uint256 result) {
+            return local_var.witness_evaluations[idx];
+        }
+)";
+
 std::string get_witness_call = "get_witness_i";
 
 
@@ -239,6 +274,13 @@ std::string get_public_input = R"(
                 result := mload(add(add(mload(add(ptr, PUBLIC_INPUT_EVALUATIONS_OFFSET)), 0x20), mul(0x20, idx)))
             }
 )";
+
+std::string get_public_input_no_asm = R"(
+        function get_public_input_i(uint256 idx, local_vars_type memory local_var) internal pure returns (uint256 result) {
+            return local_var.public_input_evaluations[idx];
+        }
+)";
+
 std::string get_public_input_call = "get_public_input_i";
 
 std::string get_constant = R"(
@@ -246,6 +288,13 @@ std::string get_constant = R"(
                 result := mload(add(add(mload(add(ptr, CONSTANT_EVALUATIONS_OFFSET)), 0x20), mul(0x20, idx)))
             }
 )";
+
+std::string get_constant_no_asm = R"(
+        function get_constant_i(uint256 idx, local_vars_type memory local_var) internal pure returns (uint256 result) {
+            return local_var.constant_evaluations[idx]
+         }
+)";
+
 std::string get_constant_call = "get_constant_i";
 
 std::string get_selector = R"(
@@ -253,6 +302,13 @@ std::string get_selector = R"(
                 result := mload(add(add(mload(add(ptr, SELECTOR_EVALUATIONS_OFFSET)), 0x20), mul(0x20, idx)))
             }
 )";
+
+std::string get_selector_no_asm = R"(
+        function get_selector_i(uint256 idx, local_vars_type memory local_var)  internal pure returns (uint256 result) {
+            return local_var.selector_evaluations[idx];
+        }
+)";
+
 std::string get_selector_call = "get_selector_i";
 
 std::string gate_sol_file_template = R"(
@@ -385,6 +441,73 @@ $GATES_LOAD_EVALUATIONS$
 $GATES_GET_EVALUATIONS_FUNCTIONS$
 $GATES_EXECUTION$
         }
+    }
+}
+)";
+
+
+
+std::string single_sol_file_template_no_asm = R"(
+// SPDX-License-Identifier: Apache-2.0.
+//---------------------------------------------------------------------------//
+// Copyright (c) 2022 Mikhail Komarov <nemo@nil.foundation>
+// Copyright (c) 2022 Aleksei Moskvin <alalmoskvin@nil.foundation>
+// Copyright (c) 2023 Elena Tatuzova  <alalmoskvin@nil.foundation>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//---------------------------------------------------------------------------//
+pragma solidity >=0.8.4;
+import "../../../contracts/types.sol";
+import "../../../contracts/basic_marshalling.sol";
+import "../../../contracts/commitments/batched_lpc_verifier.sol";
+import "../../../contracts/interfaces/gate_argument.sol";
+contract $TEST_ID$_gate_argument_split_gen  is IGateArgument{
+    uint256 constant GATES_N = $GATES_NUMBER$;
+    struct local_vars_type{
+        // 0x0
+        uint256 constraint_eval;
+        // 0x20
+        uint256 gate_eval;
+        // 0x40
+        uint256 gates_evaluation;
+        // 0x60
+        uint256 theta_acc;
+$GATES_LOCAL_VARS_EVALUATION_FIELDS$
+    }
+    uint256 constant MODULUS_OFFSET = 0x0;
+    uint256 constant THETA_OFFSET = 0x20;
+    uint256 constant CONSTRAINT_EVAL_OFFSET = 0x00;
+    uint256 constant GATE_EVAL_OFFSET = 0x20;
+    uint256 constant GATES_EVALUATIONS_OFFSET = 0x40;
+    uint256 constant THETA_ACC_OFFSET = 0x60;
+$GATE_ARGUMENT_LOCAL_VARS_OFFSETS$
+$GATES_GET_EVALUATIONS_FUNCTIONS$
+    function evaluate_gates_be(
+        bytes calldata blob,
+        uint256 eval_proof_combined_value_offset,
+        types.gate_argument_params memory gate_params,
+        types.arithmetization_params memory ar_params,
+        int256[][] calldata columns_rotations
+    ) external pure returns (uint256 gates_evaluation) {
+        local_vars_type memory local_vars;
+$GATES_LOAD_EVALUATIONS$
+        local_vars.theta_acc = 1;
+        local_vars.gates_evaluation = 0;
+        uint256 theta_acc = local_vars.theta_acc;
+        uint256 terms;
+        uint256 modulus = gate_params.modulus;
+        uint256 theta = gate_params.theta;
+$GATES_EXECUTION$
     }
 }
 )";
