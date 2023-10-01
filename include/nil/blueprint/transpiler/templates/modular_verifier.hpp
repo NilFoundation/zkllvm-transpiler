@@ -9,12 +9,12 @@ namespace nil {
         {
             uint256 lookup_offset = table_offset + quotient_offset + uint256(uint8(blob[z_offset + basic_marshalling.get_length(blob, z_offset - 0x8) *0x20 + 0xf])) * 0x20;
             uint256[4] memory lookup_argument;
+            uint256 lookup_commitment = basic_marshalling.get_uint256_be(blob, 0x81);
             ILookupArgument lookup_contract = ILookupArgument(_lookup_argument_address);
             (lookup_argument, tr_state.current_challenge) = lookup_contract.verify(
-//            (lookup_argument, tr_state.current_challenge) = modular_lookup_argument_$TEST_NAME$.verify(
-                blob[special_selectors_offset: table_offset + quotient_offset], 
-                blob[lookup_offset:lookup_offset + sorted_columns * 0x60], 
-                basic_marshalling.get_uint256_be(blob, 0x81), 
+                blob[special_selectors_offset: table_offset + quotient_offset],
+                blob[lookup_offset:lookup_offset + sorted_columns * 0x60],
+                lookup_commitment,
                 state.l0,
                 tr_state.current_challenge
             );
@@ -78,11 +78,10 @@ contract modular_verifier_$TEST_NAME$ is IModularVerifier{
 
     function initialize(
 //        address permutation_argument_address,
-        address lookup_argument_address, 
+        address lookup_argument_address,
         address gate_argument_address,
         address commitment_contract_address
     ) public{
-        console.log("Initialize");
         types.transcript_data memory tr_state;
         transcript.init_transcript(tr_state, hex"");
         transcript.update_transcript_b32(tr_state, vk1);
@@ -104,28 +103,75 @@ contract modular_verifier_$TEST_NAME$ is IModularVerifier{
         uint256 Z_at_xi;
         uint256 l0;
         uint256[f_parts] F;
+        bool b;
+    }
+
+    // Public input columns
+    function public_input_direct(bytes calldata blob, uint256[] calldata public_input, verifier_state memory state) internal view
+    returns (bool check){
+        check = true;
+
+        uint256 result = 0;
+        uint256 Omega = 1;
+
+        for(uint256 i = 0; i < public_input.length;){
+            if( public_input[i] != 0){
+                uint256 L = mulmod(
+                    Omega,
+                    field.inverse_static(
+                        addmod(state.xi, modulus - Omega, modulus),
+                        modulus
+                    ),
+                    modulus
+                );
+
+                result = addmod(
+                    result,
+                    mulmod(
+                        public_input[i], L, modulus
+                    ),
+                    modulus
+                );
+            }
+            Omega = mulmod(Omega, omega, modulus);
+            unchecked{i++;}
+        }
+        result = mulmod(
+            result, addmod(field.pow_small(state.xi, rows_amount, modulus), modulus - 1, modulus), modulus
+        );
+        result = mulmod(result, field.inverse_static(rows_amount, modulus), modulus);
+
+        // Input is proof_map.eval_proof_combined_value_offset
+        if( result != basic_marshalling.get_uint256_be(
+            blob, $PUBLIC_INPUT_OFFSET$
+        )) check = false;
     }
 
     function verify(
-        bytes calldata blob
-    ) public view{
+        bytes calldata blob,
+        uint256[] calldata public_input
+    ) public returns (bool result) {
         verifier_state memory state;
-        uint256 gas = gasleft();
-        uint256 xi = basic_marshalling.get_uint256_be(blob, $EVAL_PROOF_OFFSET$);
-        state.Z_at_xi = addmod(field.pow_small(xi, rows_amount, modulus), modulus-1, modulus);
+        state.b = true;
+        state.xi = basic_marshalling.get_uint256_be(blob, $EVAL_PROOF_OFFSET$);
+        state.Z_at_xi = addmod(field.pow_small(state.xi, rows_amount, modulus), modulus-1, modulus);
         state.l0 = mulmod(
-            state.Z_at_xi, 
-            field.inverse_static(mulmod(addmod(xi, modulus - 1, modulus), rows_amount, modulus), modulus), 
+            state.Z_at_xi,
+            field.inverse_static(mulmod(addmod(state.xi, modulus - 1, modulus), rows_amount, modulus), modulus),
             modulus
         );
 
-        //0. Check proof size
-        // No direct public input
+        //0. Direct public input check
+        if(public_input.length > 0) {
+            if (!public_input_direct(blob[$TABLE_Z_OFFSET$:$TABLE_Z_OFFSET$+$QUOTIENT_OFFSET$], public_input, state)) {
+                emit WrongPublicInput();
+                state.b = false;
+            }
+        }
 
-        //1. Init transcript        
+        //1. Init transcript
         types.transcript_data memory tr_state;
         tr_state.current_challenge = transcript_state;
-        // TODO: Just do something with it
 
         {
             //2. Push variable_values commitment to transcript
@@ -133,8 +179,8 @@ contract modular_verifier_$TEST_NAME$ is IModularVerifier{
 
             //3. Permutation argument
             uint256[3] memory permutation_argument = modular_permutation_argument_$TEST_NAME$.verify(
-                blob[$Z_OFFSET$:$TABLE_Z_OFFSET$+$QUOTIENT_OFFSET$], 
-                transcript.get_field_challenge(tr_state, modulus), 
+                blob[$Z_OFFSET$:$TABLE_Z_OFFSET$+$QUOTIENT_OFFSET$],
+                transcript.get_field_challenge(tr_state, modulus),
                 transcript.get_field_challenge(tr_state, modulus),
                 state.l0
             );
@@ -143,6 +189,7 @@ contract modular_verifier_$TEST_NAME$ is IModularVerifier{
             state.F[2] = permutation_argument[2];
         }
 
+        //4. Lookup library call
         $LOOKUP_LIBRARY_CALL$
 
         //5. Push permutation batch to transcript
@@ -152,6 +199,19 @@ contract modular_verifier_$TEST_NAME$ is IModularVerifier{
             //6. Gate argument
             IGateArgument modular_gate_argument = IGateArgument(_gate_argument_address);
             state.F[7] = modular_gate_argument.verify(blob[table_offset:table_end_offset], transcript.get_field_challenge(tr_state, modulus));
+            state.F[7] = mulmod(
+                state.F[7],
+                addmod(
+                    1,
+                    modulus - addmod(
+                        basic_marshalling.get_uint256_be(blob, special_selectors_offset),
+                        basic_marshalling.get_uint256_be(blob, special_selectors_offset + 0x60),
+                        modulus
+                    ),
+                    modulus
+                ),
+                modulus
+            );
         }
 
         // No public input gate
@@ -163,11 +223,9 @@ contract modular_verifier_$TEST_NAME$ is IModularVerifier{
                 F_consolidated = addmod(F_consolidated, mulmod(state.F[i],transcript.get_field_challenge(tr_state, modulus), modulus), modulus);
                 unchecked{i++;}
             }
-            uint256 points_num = basic_marshalling.get_length(blob, $EVAL_PROOF_OFFSET$ + 0x20);
             transcript.update_transcript_b32_by_offset_calldata(tr_state, blob, 0x59);
         }
 
-        bool b = true;
         //8. Commitment scheme verify_eval
         {
 //            ICommitmentScheme commitment_scheme = ICommitmentScheme(_commitment_contract_address);
@@ -178,10 +236,10 @@ contract modular_verifier_$TEST_NAME$ is IModularVerifier{
                 unchecked{i++;}
             }
             if(!modular_commitment_scheme_$TEST_NAME$.verify_eval(
-                blob[z_offset - 0x8:], commitments, xi, tr_state.current_challenge
+                blob[z_offset - 0x8:], commitments, state.xi, tr_state.current_challenge
             )) {
-                console.log("Error from commitment scheme!");
-                b = false;
+                emit WrongCommitment();
+                state.b = false;
             }
         }
 
@@ -191,23 +249,24 @@ contract modular_verifier_$TEST_NAME$ is IModularVerifier{
             uint256 factor = 1;
             for(uint64 i = 0; i < uint64(uint8(blob[z_offset + basic_marshalling.get_length(blob, z_offset - 0x8) *0x20 + 0xf]));){
                 T_consolidated = addmod(
-                    T_consolidated, 
-                    mulmod(basic_marshalling.get_uint256_be(blob, table_offset + quotient_offset + i *0x20), factor, modulus), 
+                    T_consolidated,
+                    mulmod(basic_marshalling.get_uint256_be(blob, table_offset + quotient_offset + i *0x20), factor, modulus),
                     modulus
                 );
                 factor = mulmod(factor, state.Z_at_xi + 1, modulus);
                 unchecked{i++;}
             }
             if( F_consolidated != mulmod(T_consolidated, state.Z_at_xi, modulus) ) {
-                console.log("Error. Table does't satisfy constraint system");
-                b = false;
+                emit ConstraintSystemNotSatisfied();
+                state.b = false;
             }
-            if(b) console.log("SUCCESS!"); else console.log("FAILURE!");
         }
 
-        console.log("Gas for verification:", gas-gasleft());
+        emit VerificationResult(state.b);
+
+        result = state.b;
     }
-}            
+}
         )";
     }
 }
