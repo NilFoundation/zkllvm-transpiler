@@ -39,6 +39,7 @@
 #include <nil/blueprint/transpiler/templates/commitment_scheme.hpp>
 #include <nil/blueprint/transpiler/templates/external_gate.hpp>
 #include <nil/blueprint/transpiler/templates/external_lookup.hpp>
+#include <nil/blueprint/transpiler/templates/public_input.hpp>
 #include <nil/blueprint/transpiler/lpc_scheme_gen.hpp>
 #include <nil/blueprint/transpiler/util.hpp>
 
@@ -96,11 +97,9 @@ namespace nil {
                 return result;
             }
 
-            std::string zero_indices(columns_rotations_type col_rotations){
-                std::vector<std::size_t> zero_indices;
-                std::uint16_t fixed_values_points;
-                std::stringstream result;
-
+            void init_zero_indices(columns_rotations_type col_rotations){
+                std::uint16_t fixed_values_points = 0;
+                
                 for(std::size_t i= 0; i < PlaceholderParams::constant_columns + PlaceholderParams::selector_columns; i++){
                     fixed_values_points += col_rotations[i + PlaceholderParams::witness_columns + PlaceholderParams::public_input_columns].size() + 1;
                 }
@@ -109,7 +108,7 @@ namespace nil {
                     std::size_t j = 0;
                     for(auto& rot: col_rotations[i]){
                         if(rot == 0){
-                            zero_indices.push_back(j);
+                            _zero_indices[i] = j;
                             break;
                         }
                         j++;
@@ -118,16 +117,23 @@ namespace nil {
                 std::uint16_t sum = fixed_values_points;
                 std::size_t i = 0;
                 for(; i < PlaceholderParams::witness_columns + PlaceholderParams::public_input_columns; i++){
-                    zero_indices[i] = (sum + zero_indices[i]) * 0x20;
+                    _zero_indices[i] = (sum + _zero_indices[i]) * 0x20;
                     sum += col_rotations[i].size();
-                    result << std::hex << std::setfill('0') << std::setw(4) << zero_indices[i];
                 }
 
                 sum = 0;
                 for(; i < PlaceholderParams::total_columns; i++){
-                    zero_indices[i] = (sum + zero_indices[i]) * 0x20;
+                    _zero_indices[i] = (sum + _zero_indices[i]) * 0x20;
                     sum += col_rotations[i].size() + 1;
-                    result << std::hex << std::setfill('0') << std::setw(4) << zero_indices[i];
+                }
+            }
+
+
+            std::string zero_indices_str(){
+                std::stringstream result;
+
+                for( std::size_t j = 0; j < PlaceholderParams::total_columns; j++){
+                    result << std::hex << std::setfill('0') << std::setw(4) << _zero_indices[j];
                 }
                 return result.str();
             }
@@ -171,7 +177,7 @@ namespace nil {
             _common_data(common_data),
             _lpc_scheme(lpc_scheme),
             _permutation_size(permutation_size),
-            _folder_name(folder_name)    
+            _folder_name(folder_name)
             {
                 std::size_t found = folder_name.rfind("/");
                 if( found == std::string::npos ){
@@ -179,7 +185,8 @@ namespace nil {
                 } else{
                     _test_name = folder_name.substr(found + 1);
                 }
-                _use_lookups = _constraint_system.lookup_gates().size() > 0;
+                _use_lookups = (_constraint_system.lookup_gates().size() > 0);
+                _use_public_input_gate = (_constraint_system.public_input_gate().size() > 0);
                 
                 _z_offset = _use_lookups ? 0xc9 : 0xa1;
                 _special_selectors_offset = _z_offset + _permutation_size * 0x80;
@@ -201,6 +208,7 @@ namespace nil {
                 _quotient_offset = _use_lookups? _permutation_offset + 0x80: _permutation_offset + 0x40;
 
                 _var_indices = get_plonk_variable_indices(_common_data.columns_rotations);
+                init_zero_indices(_common_data.columns_rotations);
             }
 
             void print_gate_file(std::string gate_computation_code, std::size_t gate_id){
@@ -375,7 +383,27 @@ namespace nil {
                 
                 return lookup_str.str();
             }
+
+            std::string public_input_gate_offsets_string(){
+                std::stringstream result;
+                result << "bytes constant public_input_columns = hex\"";
+                for(const auto &var:_constraint_system.public_input_gate()){
+                    result << std::hex << std::setfill('0') << std::setw(4) << _zero_indices[var.index];
+                }
+                result << "\";";
+                return result.str();
+            }
         
+            std::string public_input_rows_string(){
+                std::stringstream result;
+                result << "bytes constant public_input_rows = hex\"";
+                for(const auto &var:_constraint_system.public_input_gate()){
+                    result << std::hex << std::setfill('0') << std::setw(2) << var.rotation;
+                }
+                result << "\";";
+                return result.str();
+            }
+
             void print(){
                 std::filesystem::create_directory(_folder_name);
                 std::cout << "Generating verifier " << _test_name << std::endl;
@@ -401,17 +429,22 @@ namespace nil {
                 reps["$PERMUTATION_SIZE$"] = to_string(_permutation_size);
                 reps["$SPECIAL_SELECTORS_OFFSET$"] = to_string(_special_selectors_offset);
                 reps["$TABLE_Z_OFFSET$"] = to_string(_table_z_offset);
-                reps["$PUBLIC_INPUT_OFFSET$"] = to_string(_public_input_offset);
                 reps["$PERMUTATION_TABLE_OFFSET$"] = to_string(_permutation_offset);
                 reps["$QUOTIENT_OFFSET$"] = to_string(_quotient_offset);
                 reps["$ROWS_AMOUNT$"] = to_string(_common_data.rows_amount);
                 reps["$OMEGA$"] = to_string(_common_data.basic_domain->get_domain_element(1));
-                reps["$ZERO_INDICES$"] = zero_indices(_common_data.columns_rotations);
+                reps["$ZERO_INDICES$"] = zero_indices_str();
                 reps["$GATE_ARGUMENT_COMPUTATION$"] = gate_argument;
                 reps["$GATE_INCLUDES$"] = _gate_includes;
                 reps["$LOOKUP_INCLUDES$"] = _lookup_includes;
                 reps["$LOOKUP_ARGUMENT_COMPUTATION$"] = lookup_argument;
                 reps["$COMMITMENT_CODE$"] = commitment_code;
+                reps["$PUBLIC_INPUT_FUNCTION$"] =   _use_public_input_gate?modular_public_input_gate_function:modular_direct_public_input_function;
+                reps["$DIRECT_PUBLIC_INPUT_CALL$"] = _use_public_input_gate?"":modular_direct_public_input_call;
+                reps["$PUBLIC_INPUT_GATE_CALL$"] = _use_public_input_gate?modular_public_input_gate_call:"\t\t//No public input gate";
+                reps["$PUBLIC_INPUT_OFFSET$"] = to_string(_public_input_offset);
+                reps["$PUBLIC_INPUT_GATE_COLUMNS$"] = _use_public_input_gate? public_input_gate_offsets_string() : "";
+                reps["$PUBLIC_INPUT_GATE_ROWS$"] = _use_public_input_gate? public_input_rows_string() : "";
 
                 commitment_scheme_replaces<PlaceholderParams>(reps, _common_data, _lpc_scheme, _permutation_size, _use_lookups);
 
@@ -433,6 +466,7 @@ namespace nil {
             std::string _folder_name;
             std::string _test_name;
             bool        _use_lookups;
+            bool        _use_public_input_gate;
             std::size_t _z_offset;
             std::size_t _special_selectors_offset;
             std::size_t _table_z_offset;
@@ -444,6 +478,7 @@ namespace nil {
 
             std::string _gate_includes;
             std::string _lookup_includes;
+            std::array<std::size_t, PlaceholderParams::total_columns> _zero_indices;
         };
     }
 }

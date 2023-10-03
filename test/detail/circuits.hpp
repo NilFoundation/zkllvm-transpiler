@@ -26,8 +26,8 @@
 // SOFTWARE.
 //---------------------------------------------------------------------------//
 
-#ifndef CRYPTO3_ZK_TEST_PLONK_CIRCUITS_HPP
-#define CRYPTO3_ZK_TEST_PLONK_CIRCUITS_HPP
+#ifndef TRANSPILER_ZK_TEST_PLONK_CIRCUITS_HPP
+#define TRANSPILER_ZK_TEST_PLONK_CIRCUITS_HPP
 
 #define _RND_ algebra::random_element<FieldType>();
 
@@ -73,6 +73,7 @@ namespace nil {
                     std::vector<plonk_gate<FieldType, plonk_constraint<FieldType>>> gates;
                     std::vector<plonk_copy_constraint<FieldType>> copy_constraints;
                     std::vector<plonk_lookup_gate<FieldType, plonk_lookup_constraint<FieldType>>> lookup_gates;
+                    std::vector<plonk_variable<typename FieldType::value_type>> public_input_gate;
 
                     std::vector<plonk_lookup_table<FieldType>> lookup_tables;
 
@@ -365,9 +366,20 @@ namespace nil {
                     test_circuit.gates.push_back(mul_gate);
 
                     return test_circuit;
-                }
+                } 
 
 
+                //---------------------------------------------------------------------------//
+                // Test circuit 3 (simplest lookup)
+                //  i  | w_0 | w_1 | w_2 | c_0 | c_1 | c_2 |  s  |  lt   |
+                //  0  |  1  |  0  |  0  |  0  |  0  |  0  |  1  |   0   |
+                //  1  |     |     |     |  1  |  0  |  1  |  0  |   1   |
+                //  2  |     |     |     |  0  |  1  |  0  |  0  |   1   |
+                //  3  |     |     |     |  1  |  0  |  0  |  0  |   1   |
+                //
+                //  {w_0, w_1, w_2} \in {c_0, c_1, c_2}
+                //  public_input_gate: w_0[0], w_1[0], w_2[0]
+                //---------------------------------------------------------------------------//
                 constexpr static const std::size_t witness_columns_3 = 3;
                 constexpr static const std::size_t public_columns_3 = 0;
                 constexpr static const std::size_t constant_columns_3 = 3;
@@ -406,13 +418,13 @@ namespace nil {
                     // lookup inputs
                     typename FieldType::value_type one = FieldType::value_type::one();
                     typename FieldType::value_type zero = FieldType::value_type::zero();
-                    table[0] = {1, 0, 0, 0, 0, 0, 0, 0}; // Witness 1
-                    table[1] = {0, 0, 0, 0, 0, 0, 0, 0};
-                    table[2] = {0, 0, 0, 0, 0, 0, 0, 0};
+                    table[0] = {1, alg_rnd(), alg_rnd(), alg_rnd(), alg_rnd(), alg_rnd(), alg_rnd(), alg_rnd()}; // Witness 1
+                    table[1] = {0, alg_rnd(), alg_rnd(), alg_rnd(), alg_rnd(), alg_rnd(), alg_rnd(), alg_rnd()};
+                    table[2] = {0, alg_rnd(), alg_rnd(), alg_rnd(), alg_rnd(), alg_rnd(), alg_rnd(), alg_rnd()};
 
-                    table[3] = {0, 1,  0, 1, 0, 0, 0, 0};  //Lookup values
-                    table[4] = {0, 0,  1, 0, 0, 0, 0, 0}; //Lookup values
-                    table[5] = {0, 1,  0, 0, 0, 0, 0, 0}; //Lookup values
+                    table[3] = {0, 1,  0, 1, alg_rnd(), alg_rnd(), alg_rnd(), alg_rnd()};  //Lookup values
+                    table[4] = {0, 0,  1, 0, alg_rnd(), alg_rnd(), alg_rnd(), alg_rnd()}; //Lookup values
+                    table[5] = {0, 1,  0, 0, alg_rnd(), alg_rnd(), alg_rnd(), alg_rnd()}; //Lookup values
 
                     std::array<plonk_column<FieldType>, witness_columns> private_assignment;
                     for (std::size_t i = 0; i < witness_columns; i++) {
@@ -464,6 +476,11 @@ namespace nil {
                     std::vector<plonk_lookup_constraint<FieldType>> lookup_constraints = {lookup_constraint};
                     plonk_lookup_gate<FieldType, plonk_lookup_constraint<FieldType>> lookup_gate(0, lookup_constraints);
                     test_circuit.lookup_gates.push_back(lookup_gate);
+
+                    plonk_variable<assignment_type> pi0(0, 0, false,  plonk_variable<assignment_type>::column_type::witness);
+                    plonk_variable<assignment_type> pi1(1, 2, false,  plonk_variable<assignment_type>::column_type::witness);
+                    test_circuit.public_input_gate.push_back(pi0);
+                    test_circuit.public_input_gate.push_back(pi1);
 
                     // Add constructor for lookup table
                     plonk_lookup_table<FieldType> table1(3, 1); // 1 -- selector_id, 3 -- number of columns;
@@ -1196,4 +1213,4 @@ namespace nil {
 }    // namespace nil
 
 
-#endif    // CRYPTO3_ZK_TEST_PLONK_CIRCUITS_HPP
+#endif    // TRANSPILER_ZK_TEST_PLONK_CIRCUITS_HPP

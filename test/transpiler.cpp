@@ -218,7 +218,8 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
         circuit.gates, 
         circuit.copy_constraints, 
         circuit.lookup_gates,
-        circuit.lookup_tables
+        circuit.lookup_tables,
+        circuit.public_input_gate
     );
     typename policy_type::variable_assignment_type assignments = circuit.table;
 
@@ -302,7 +303,8 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
         circuit.gates, 
         circuit.copy_constraints, 
         circuit.lookup_gates,
-        circuit.lookup_tables
+        circuit.lookup_tables,
+        circuit.public_input_gate
     );
     typename policy_type::variable_assignment_type assignments = circuit.table;
 
@@ -371,7 +373,7 @@ BOOST_AUTO_TEST_SUITE(placeholder_circuit3)
     using lpc_placeholder_params_type = nil::crypto3::zk::snark::placeholder_params<circuit_params, lpc_scheme_type>;
     using policy_type = zk::snark::detail::placeholder_policy<field_type, circuit_params>;
 BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
-    auto circuit = circuit_test_3<field_type>();
+    auto circuit = circuit_test_3<field_type>(test_global_alg_rnd_engine<field_type>, test_global_rnd_engine);
     plonk_table_description<field_type, typename circuit_params::arithmetization_params> desc;
 
     desc.rows_amount = table_rows;
@@ -381,7 +383,8 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
         circuit.gates, 
         circuit.copy_constraints, 
         circuit.lookup_gates,
-        circuit.lookup_tables
+        circuit.lookup_tables,
+        circuit.public_input_gate
     );
     typename policy_type::variable_assignment_type assignments = circuit.table;
 
@@ -454,7 +457,8 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
         circuit.gates, 
         circuit.copy_constraints, 
         circuit.lookup_gates,
-        circuit.lookup_tables
+        circuit.lookup_tables,
+        circuit.public_input_gate
     );
     typename policy_type::variable_assignment_type assignments = circuit.table;
 
@@ -529,7 +533,8 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
         circuit.gates, 
         circuit.copy_constraints, 
         circuit.lookup_gates,
-        circuit.lookup_tables
+        circuit.lookup_tables,
+        circuit.public_input_gate
     );
     typename policy_type::variable_assignment_type assignments = circuit.table;
 
@@ -604,7 +609,8 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
         circuit.gates, 
         circuit.copy_constraints, 
         circuit.lookup_gates,
-        circuit.lookup_tables
+        circuit.lookup_tables,
+        circuit.public_input_gate
     );
     typename policy_type::variable_assignment_type assignments = circuit.table;
 
