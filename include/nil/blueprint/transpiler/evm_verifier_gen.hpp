@@ -155,13 +155,11 @@ namespace nil {
 
                 crypto3::math::expression_to_non_linear_combination_visitor<variable_type> visitor;
                 auto comb = visitor.convert(constraint);
-                std::cout << "generating for constraint:" << constraint << std::endl;
 
                 if (_deduce_horner && detect_polynomial(comb)) {
                     comb.sort_terms_by_degree();
                     /* First term always exists, as polynomial contains at least one term */
                     std::size_t degree = comb.terms[0].get_vars().size();
-                    std::cout << "Poly degree: " << degree << std::endl;
                     result << "\t\t/* Constraint is a polynomial over one variable. Using Horner's formula */" << std::endl;
                     auto it = std::cbegin(comb);
                     /* Load temporary variable */
@@ -180,7 +178,6 @@ namespace nil {
                             ++it;
                         } else {
                             result << "/* term with zero coeficient is skipped */" << std::endl;
-                            std::cout << "zero!" << std::endl;
                         }
                         result << "\t\tsum = mulmod(sum, x, modulus);" << std::endl;
                         --degree;
@@ -193,7 +190,6 @@ namespace nil {
                 } else {
                     result << "\t\tsum = 0;" << std::endl;
                     for( auto it = std::cbegin(comb); it != std::cend(comb); ++it ){
-                        std::cout << "it: " << *it << std::endl;
                         bool coeff_one = (it->get_coeff() == PlaceholderParams::field_type::value_type::one());
                         if(!coeff_one) result << "\t\tprod = " << it->get_coeff() << ";" << std::endl;
                         const auto &vars = it->get_vars();
@@ -350,7 +346,6 @@ namespace nil {
                 out << "\t\tgate = 0;" << std::endl;
                 int c = 0;
                 for(const auto &constraint: gate.constraints){
-                    std::cout << "constraint: " << c++ << std::endl;
                     out << constraint_computation_code_optimize_polynomial(_var_indices, constraint);
                     out << "\t\tgate = addmod(gate, mulmod(theta_acc, sum, modulus), modulus);" << std::endl;
                     out << "\t\ttheta_acc = mulmod(theta_acc, theta, modulus);" << std::endl;
@@ -445,7 +440,6 @@ namespace nil {
 
                 i = 0;
                 for(const auto &gate: _constraint_system.gates()) {
-                    std::cout << "gate: " << i << std::endl;
                     std::string code = gate_computation_code(gate);
                     gate_costs[i] = std::make_pair(i, estimate_gate_cost(code));
                     gate_codes[i] = code;
