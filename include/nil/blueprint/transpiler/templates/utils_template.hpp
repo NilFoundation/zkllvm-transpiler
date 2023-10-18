@@ -26,7 +26,7 @@ pragma solidity >=0.8.4;
 
 import "hardhat/console.sol";
 
-library utils {
+library modular_utils_$TEST_NAME$ {
     uint256 constant modulus = $MODULUS$;
 
     $POWER_FUNCTIONS$

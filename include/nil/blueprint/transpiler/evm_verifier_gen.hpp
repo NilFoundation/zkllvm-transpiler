@@ -223,7 +223,7 @@ namespace nil {
                         /* Using special powX function is only feasible for powers >= 4 */
                         if ( _optimize_powers && ((power = term_is_power(*term)) >= 4) ) {
                             _term_powers.insert(power);
-                            result << "\t\tprod = utils.pow" << power << "(basic_marshalling.get_uint256_be(blob, " << _var_indices.at(vars[0]) * 0x20 << "));" << std::endl;
+                            result << "\t\tprod = modular_utils_" << _test_name << ".pow" << power << "(basic_marshalling.get_uint256_be(blob, " << _var_indices.at(vars[0]) * 0x20 << "));" << std::endl;
                         } else {
                             for (auto var = std::cbegin(vars); var != std::cend(vars); ++var) {
                                 if (var == std::cbegin(vars)) {
@@ -551,6 +551,7 @@ namespace nil {
                 std::string utils_library(utils_library_template);
                 boost::replace_all(utils_library, "$MODULUS$", to_string(PlaceholderParams::field_type::modulus));
                 boost::replace_all(utils_library, "$POWER_FUNCTIONS$", power_functions.str());
+                boost::replace_all(utils_library, "$TEST_NAME$", _test_name);
                 std::ofstream utils;
                 utils.open(_folder_name + "/utils.sol");
                 utils << utils_library;
