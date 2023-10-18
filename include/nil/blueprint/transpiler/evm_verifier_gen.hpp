@@ -40,6 +40,7 @@
 #include <nil/blueprint/transpiler/templates/commitment_scheme.hpp>
 #include <nil/blueprint/transpiler/templates/external_gate.hpp>
 #include <nil/blueprint/transpiler/templates/external_lookup.hpp>
+#include <nil/blueprint/transpiler/templates/utils_template.hpp>
 #include <nil/blueprint/transpiler/lpc_scheme_gen.hpp>
 #include <nil/blueprint/transpiler/util.hpp>
 
@@ -134,6 +135,7 @@ namespace nil {
                 return result.str();
             }
 
+            /* Detect whether combination is a polynomial over one variable */
             bool detect_polynomial(crypto3::math::non_linear_combination<variable_type> const& comb) {
                 std::unordered_set<variable_type> comb_vars;
 
@@ -147,7 +149,32 @@ namespace nil {
                 return comb_vars.size() == 1;
             }
 
-            std::string constraint_computation_code_optimize_polynomial(
+            /* Detect whether term is a power of one variable. If such, return this power */
+            std::size_t term_is_power(crypto3::math::term<variable_type> const& term) {
+                const auto &vars = term.get_vars();
+                auto var = std::cbegin(vars);
+                
+                if (var == std::cend(vars))
+                    return 0;
+
+                variable_type prev_var = *var;
+                ++var;
+
+                std::size_t power = 1;
+
+                while (var != std::cend(vars)) {
+                    if (*var != prev_var) {
+                        return 0;
+                    }
+                    ++power;
+                    prev_var = *var;
+                    ++var;
+                }
+
+                return power;
+            }
+
+            std::string constraint_computation_code_optimized(
                 variable_indices_type &_var_indices,
                 const constraint_type &constraint
             ){
@@ -189,20 +216,31 @@ namespace nil {
                     result << "\t\t/* End using Horner's formula */" << std::endl;
                 } else {
                     result << "\t\tsum = 0;" << std::endl;
-                    for( auto it = std::cbegin(comb); it != std::cend(comb); ++it ){
-                        bool coeff_one = (it->get_coeff() == PlaceholderParams::field_type::value_type::one());
-                        if(!coeff_one) result << "\t\tprod = " << it->get_coeff() << ";" << std::endl;
-                        const auto &vars = it->get_vars();
-                        for( auto it2 = std::cbegin(vars); it2 != std::cend(vars); it2++ ){
-                            const variable_type &v = *it2;
-                            if(coeff_one){
-                                coeff_one = false;
-                                result << "\t\tprod = basic_marshalling.get_uint256_be(blob, " << _var_indices.at(v) * 0x20 << ");" << std::endl;
-                            } else{
-                                result << "\t\tprod = mulmod(prod, basic_marshalling.get_uint256_be(blob, " << _var_indices.at(v) * 0x20 << "), modulus);" << std::endl;
+                    for (auto term = std::cbegin(comb); term != std::cend(comb); ++term) {
+                        const auto &vars = term->get_vars();
+                        std::size_t power;
+
+                        /* Using special powX function is only feasible for powers >= 4 */
+                        if ( _optimize_powers && ((power = term_is_power(*term)) >= 4) ) {
+                            _term_powers.insert(power);
+                            result << "\t\tprod = utils.pow" << power << "(basic_marshalling.get_uint256_be(blob, " << _var_indices.at(vars[0]) * 0x20 << "));" << std::endl;
+                        } else {
+                            for (auto var = std::cbegin(vars); var != std::cend(vars); ++var) {
+                                if (var == std::cbegin(vars)) {
+                                    result << "\t\tprod = basic_marshalling.get_uint256_be(blob, " << _var_indices.at(*var) * 0x20 << ");" << std::endl;
+                                } else {
+                                    result << "\t\tprod = mulmod(prod, basic_marshalling.get_uint256_be(blob, " << _var_indices.at(*var) * 0x20 << "), modulus);" << std::endl;
+                                }
                             }
                         }
-                        result << "\t\tsum = addmod(sum, prod, modulus);" << std::endl;
+                        if (vars.size() == 0) {
+                            result << "\t\tsum = addmod(sum, " << term->get_coeff() << ", modulus);" << std::endl;
+                        } else {
+                            if (term->get_coeff() != PlaceholderParams::field_type::value_type::one()) {
+                                result << "\t\tprod = mulmod(prod, " << term->get_coeff() << ", modulus);" << std::endl;
+                            }
+                            result << "\t\tsum = addmod(sum, prod, modulus);" << std::endl;
+                        }
                     }
                 }
                 return result.str();
@@ -242,11 +280,12 @@ namespace nil {
                 const typename PlaceholderParams::commitment_scheme_type &lpc_scheme,
                 std::size_t permutation_size,
                 std::string folder_name,
-                std::size_t gates_library_size_threshold = 1600,
-                std::size_t lookups_library_size_threshold = 1600,
+                std::size_t gates_library_size_threshold = 1400,
+                std::size_t lookups_library_size_threshold = 1400,
                 std::size_t gates_contract_size_threshold = 1400,
                 std::size_t lookups_contract_size_threshold = 1400,
-                bool deduce_horner = true
+                bool deduce_horner = true,
+                bool optimize_powers = true 
             ) :
             _constraint_system(constraint_system),
             _common_data(common_data),
@@ -257,7 +296,8 @@ namespace nil {
             _lookups_library_size_threshold(lookups_library_size_threshold),
             _gates_contract_size_threshold(gates_contract_size_threshold),
             _lookups_contract_size_threshold(lookups_contract_size_threshold),
-            _deduce_horner(deduce_horner)
+            _deduce_horner(deduce_horner),
+            _optimize_powers(optimize_powers)
             {
                 std::size_t found = folder_name.rfind("/");
                 if( found == std::string::npos ){
@@ -346,9 +386,10 @@ namespace nil {
                 out << "\t\tgate = 0;" << std::endl;
                 int c = 0;
                 for(const auto &constraint: gate.constraints){
-                    out << constraint_computation_code_optimize_polynomial(_var_indices, constraint);
+                    out << constraint_computation_code_optimized(_var_indices, constraint);
                     out << "\t\tgate = addmod(gate, mulmod(theta_acc, sum, modulus), modulus);" << std::endl;
                     out << "\t\ttheta_acc = mulmod(theta_acc, theta, modulus);" << std::endl;
+                    c++;
                 }
                 variable_type sel_var(gate.selector_index, 0, true, variable_type::column_type::selector);
                 out << "\t\tgate = mulmod(gate, basic_marshalling.get_uint256_be(blob, " << _var_indices.at(sel_var) * 0x20 << "), modulus);" << std::endl;
@@ -427,6 +468,29 @@ namespace nil {
                 return buckets;
             }
 
+            std::string generate_power_function(std::size_t power) {
+                std::stringstream result;
+                std::vector<std::string> ops;
+
+                result << "\tfunction pow" << power << "(uint256 base) internal pure returns (uint256 result) {" << std::endl;
+                result << "\t\tresult = base;" << std::endl;
+
+                while (power > 1) {
+                    if (power & 1) {
+                        ops.push_back("\t\tresult = mulmod(result, base, modulus);");
+                    }
+                    ops.push_back("\t\tresult = mulmod(result, result, modulus);");
+                    power >>= 1;
+                }
+
+                for(auto op = ops.rbegin(); op != ops.rend(); ++op) {
+                    result << *op << std::endl;
+                }
+
+                result << "\t}" << std::endl;
+                return result.str();
+            }
+
             std::string print_gate_argument(){
                 std::size_t gates_count = _constraint_system.gates().size();
                 if (gates_count == 0)
@@ -478,6 +542,19 @@ namespace nil {
                     }
                     print_gates_library_file(lib.first, lib.second, gate_codes);
                 }
+
+                std::stringstream power_functions;
+                for(std::size_t power: _term_powers) {
+                    power_functions << generate_power_function(power);
+                }
+
+                std::string utils_library(utils_library_template);
+                boost::replace_all(utils_library, "$MODULUS$", to_string(PlaceholderParams::field_type::modulus));
+                boost::replace_all(utils_library, "$POWER_FUNCTIONS$", power_functions.str());
+                std::ofstream utils;
+                utils.open(_folder_name + "/utils.sol");
+                utils << utils_library;
+                utils.close();
 
                 if (inlined_gate_codes.size() > 0) {
                     gate_argument_str << "\t\tuint256 sum;" << std::endl;
@@ -708,6 +785,10 @@ namespace nil {
             variable_indices_type _var_indices;
 
             bool _deduce_horner;
+
+            bool _optimize_powers;
+            std::unordered_set<std::size_t> _term_powers;
+
             std::string _gate_includes;
             std::string _lookup_includes;
             std::size_t _gates_contract_size_threshold;
