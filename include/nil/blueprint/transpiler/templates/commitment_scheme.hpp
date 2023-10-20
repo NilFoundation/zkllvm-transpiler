@@ -85,14 +85,17 @@ library modular_commitment_scheme_$TEST_NAME$ {
     function calculate_2points_interpolation(uint256[] memory xi, uint256[2] memory z, uint256 modulus)
     internal pure returns(uint256[2] memory U){
 //        require( xi.length == 2 );
+unchecked {
         U[0] = addmod(mulmod(z[0], xi[1], modulus),modulus - mulmod(z[1], xi[0], modulus), modulus);
         U[1] = addmod(z[1], modulus - z[0], modulus);
+}
     }
 
 //  coeffs for zs on each degree can be precomputed if necessary
     function calculate_3points_interpolation(uint256[] memory xi, uint256[3] memory z, uint256 modulus)
     internal pure returns(uint256[3] memory U){
 //        require( xi.length == 3 );
+unchecked {
         z[0] = mulmod(z[0], addmod(xi[1], modulus - xi[2], modulus), modulus);
         z[1] = mulmod(z[1], addmod(xi[2], modulus - xi[0], modulus), modulus);
         z[2] = mulmod(z[2], addmod(xi[0], modulus - xi[1], modulus), modulus);
@@ -106,6 +109,7 @@ library modular_commitment_scheme_$TEST_NAME$ {
         U[1] = addmod(U[1], modulus - mulmod(z[2], addmod(xi[0], xi[1], modulus), modulus), modulus);
 
         U[2] = addmod(z[0], addmod(z[1], z[2], modulus), modulus);
+}
     }
 
     function prepare_eval_points(uint256[][unique_points] memory result, uint256 xi) internal view {
@@ -113,7 +117,9 @@ library modular_commitment_scheme_$TEST_NAME$ {
 $POINTS_INITIALIZATION$
     }
 
-    function prepare_U_V(bytes calldata blob, commitment_state memory state, uint256 xi) internal view returns(bool result){        
+    function prepare_U_V(bytes calldata blob, commitment_state memory state, uint256 xi) internal view returns(bool result){
+
+unchecked {
         result = true;
         uint64 ind = 0;
         prepare_eval_points(state.unique_eval_points, xi);
@@ -245,9 +251,12 @@ $POINTS_INITIALIZATION$
             }
             unchecked{ind++;}
         }
+}
     }
 
     function compute_combined_Q(bytes calldata blob,commitment_state memory state) internal view returns(uint256[2] memory y){
+
+unchecked {
         uint256[2][unique_points] memory values;
         {
             uint256 offset = state.initial_data_offset - state.poly_num * 0x40; // Save initial data offset for future use;
@@ -287,6 +296,7 @@ $POINTS_INITIALIZATION$
             y[1] = addmod(y[1], tmp[1], modulus);
             unchecked{p++;}
         }
+}
     }
 
     function initialize(
@@ -343,6 +353,7 @@ $POINTS_INITIALIZATION$
 
     function copy_pairs_and_check(bytes calldata blob, uint256 offset, bytes memory leaf, uint256 size, uint256 proof_offset) 
     internal pure returns(bool b){
+unchecked {
         uint256 offset2 = 0x20;
         for(uint256 k = 0; k < size;){
             assembly{
@@ -364,10 +375,12 @@ $POINTS_INITIALIZATION$
         } else {
             return true;
         }
+}
     }
 
     function copy_reverted_pairs_and_check(bytes calldata blob, uint256 offset, bytes memory leaf, uint256 size, uint256 proof_offset) 
     internal pure returns(bool){
+unchecked {
         uint256 offset2 = 0x20;
         for(uint256 k = 0; k < size;){
             assembly{
@@ -389,14 +402,17 @@ $POINTS_INITIALIZATION$
         } else {
             return true;
         }
+}
     }
 
     function colinear_check(uint256 x, uint256[2] memory y, uint256 alpha, uint256 colinear_value) internal pure returns(bool){
+
+unchecked {
         uint256 tmp;
         tmp = addmod(y[0], y[1], modulus);
         tmp = mulmod(tmp, x, modulus);
         tmp = addmod(
-            tmp, 
+            tmp,
             mulmod(
                 alpha,
                 addmod(y[0], modulus-y[1], modulus), 
@@ -411,14 +427,17 @@ $POINTS_INITIALIZATION$
             return false;
         }
         return true;
+}
     }
 
     function verify_eval(
         bytes calldata blob,
-        uint256[5] memory commitments,                   
+        uint256[5] memory commitments,
         uint256 challenge,
         bytes32 transcript_state
     ) internal view returns (bool){
+
+unchecked {
         types.transcript_data memory tr_state;
         tr_state.current_challenge = transcript_state;
         commitment_state memory state;
@@ -585,6 +604,7 @@ $POINTS_INITIALIZATION$
             unchecked{i++;}
         }
         return true;
+}
     }
 }        
     )";
