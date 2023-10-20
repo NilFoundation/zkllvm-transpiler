@@ -200,16 +200,16 @@ namespace nil {
                     ++it;
                     --degree;
                     while (degree != 0) {
-                        if (degree == it->get_vars().size()) {
+                        if ((degree == it->get_vars().size()) && (it->get_coeff() != 0) ) {
                             result << "\t\tsum = addmod(sum, " << it->get_coeff() << ", modulus);" << std::endl;
                             ++it;
                         } else {
-                            result << "/* term with zero coeficient is skipped */" << std::endl;
+                            result << "\t\t/* term with zero coeficient is skipped */" << std::endl;
                         }
                         result << "\t\tsum = mulmod(sum, x, modulus);" << std::endl;
                         --degree;
                     }
-                    if (it != std::cend(comb)) {
+                    if (it != std::cend(comb) && (it->get_coeff() != 0) ) {
                         result << "/* last term */" << std::endl;
                         result << "\t\tsum = addmod(sum, " << it->get_coeff() << ", modulus);" << std::endl;
                     }
@@ -217,6 +217,9 @@ namespace nil {
                 } else {
                     result << "\t\tsum = 0;" << std::endl;
                     for (auto term = std::cbegin(comb); term != std::cend(comb); ++term) {
+                        if ( term->get_coeff() == 0) {
+                            continue;
+                        }
                         const auto &vars = term->get_vars();
                         std::size_t power;
 
@@ -280,10 +283,9 @@ namespace nil {
                 const typename PlaceholderParams::commitment_scheme_type &lpc_scheme,
                 std::size_t permutation_size,
                 std::string folder_name,
-                std::size_t gates_library_size_threshold = 1400,
-                std::size_t lookups_library_size_threshold = 1400,
-                std::size_t gates_contract_size_threshold = 1400,
-                std::size_t lookups_contract_size_threshold = 1400,
+                std::size_t gates_contract_size_threshold = 800,
+                std::size_t lookups_library_size_threshold = 1000,
+                std::size_t lookups_contract_size_threshold = 1000,
                 bool deduce_horner = true,
                 bool optimize_powers = true 
             ) :
@@ -292,7 +294,6 @@ namespace nil {
             _lpc_scheme(lpc_scheme),
             _permutation_size(permutation_size),
             _folder_name(folder_name),
-            _gates_library_size_threshold(gates_library_size_threshold),
             _lookups_library_size_threshold(lookups_library_size_threshold),
             _gates_contract_size_threshold(gates_contract_size_threshold),
             _lookups_contract_size_threshold(lookups_contract_size_threshold),
@@ -417,6 +418,15 @@ namespace nil {
                 return out.str();
             }
 
+            std::size_t estimate_constraint_cost(std::string const& code) {
+                /* proof-of-concept: cost = number of lines */
+                std::size_t lines = 0;
+                for(auto &ch: code) {
+                    lines += ch == '\n';
+                }
+                return lines;
+            }
+
             std::size_t estimate_gate_cost(std::string const& code) {
                 /* proof-of-concept: cost = number of lines */
                 std::size_t lines = 0;
@@ -491,6 +501,55 @@ namespace nil {
                 return result.str();
             }
 
+            struct constraint_info {
+                std::string code;
+                std::size_t cost;
+                std::size_t gate_index;
+                std::size_t constraint_index;
+                std::size_t selector_index;
+            };
+
+            std::string print_constraint_series(typename std::vector<constraint_info>::iterator &it,
+                    typename std::vector<constraint_info>::iterator const& last) {
+                std::stringstream result;
+                std::size_t printed_cost = 0;
+                std::size_t prev_sel = 0;
+
+                bool first_constraint = true;
+
+                while ((printed_cost < _gates_contract_size_threshold) && (it != last) ) {
+
+                    if (first_constraint) {
+                        result << "// gate === " << it->gate_index << " ===" << std::endl;
+                        result << "\t\tgate = 0;" << std::endl;
+                        first_constraint = false;
+                        prev_sel = it->selector_index;
+                    } else if (prev_sel != it->selector_index) {
+                        result << "\t\tgate = mulmod(gate, basic_marshalling.get_uint256_be(blob, "<<prev_sel<<"), modulus);" << std::endl;
+                        result << "\t\tF = addmod(F, gate, modulus);" << std::endl;
+                        result << "// gate === " << it->gate_index << " ===" << std::endl;
+                        result << "\t\tgate = 0;" << std::endl;
+                        prev_sel = it->selector_index;
+                    }
+                    result << "// constraint " << it->constraint_index << std::endl;
+                    result << it->code;
+                    result << "\t\tsum = mulmod(sum, theta_acc, modulus);" << std::endl;
+                    result << "\t\ttheta_acc = mulmod(theta, theta_acc, modulus);" << std::endl;
+                    result << "\t\tgate = addmod(gate, sum, modulus);" << std::endl;
+
+                    printed_cost += it->cost;
+                    ++it;
+                }
+
+                if (it != last) {
+                    result << "// gate computation code ended prematurely. continue in next library" << std::endl;
+                }
+                result << "\t\tgate = mulmod(gate, basic_marshalling.get_uint256_be(blob, "<<prev_sel<<"), modulus);" << std::endl;
+                result << "\t\tF = addmod(F, gate, modulus);" << std::endl;
+
+                return result.str();
+            }
+
             std::string print_gate_argument(){
                 std::size_t gates_count = _constraint_system.gates().size();
                 if (gates_count == 0)
@@ -501,46 +560,57 @@ namespace nil {
                 std::unordered_map<std::size_t, std::string> gate_codes;
                 std::vector<std::pair<std::size_t, std::size_t>> gate_costs(gates_count);
                 std::vector<std::size_t> gate_ids(gates_count);
+                
+                std::vector<constraint_info> constraints;
+                std::size_t total_cost = 0;
 
                 i = 0;
-                for(const auto &gate: _constraint_system.gates()) {
-                    std::string code = gate_computation_code(gate);
-                    gate_costs[i] = std::make_pair(i, estimate_gate_cost(code));
-                    gate_codes[i] = code;
+                for (const auto& gate: _constraint_system.gates()) {
+                    variable_type sel_var(gate.selector_index, 0, true, variable_type::column_type::selector);
+                    std::size_t j = 0;
+                    for (const auto& constraint: gate.constraints) {
+                        std::string code = constraint_computation_code_optimized(_var_indices, constraint);
+                        std::size_t cost = estimate_constraint_cost(code);
+                        std::size_t selector_index = _var_indices.at(sel_var)*0x20;
+
+                        constraints.push_back( {code, cost, i, j, selector_index} );
+
+                        total_cost += cost;
+                        ++j;
+                    }
                     ++i;
                 }
 
-                std::sort(gate_costs.begin(), gate_costs.end(),
-                        [](const std::pair<std::size_t, std::size_t> &a,
-                            const std::pair<std::size_t, std::size_t> &b) {
-                        return a.second > b.second;
-                        });
 
-                /* Fill contract inline gate computation, inline small gates first */
-                std::unordered_set<std::size_t> inlined_gate_codes;
-                std::size_t inlined_gate_codes_size = 0;
-                for (auto gate=gate_costs.rbegin(); gate != gate_costs.rend(); ++gate) {
-                    if (gate->second + inlined_gate_codes_size < _gates_contract_size_threshold) {
-                        inlined_gate_codes.insert(gate->first);
-                        inlined_gate_codes_size += gate->second;
+                std::size_t gate_modules_count = 0;
+
+
+                std::size_t current_selector = 0;
+                if (total_cost <= _gates_contract_size_threshold) {
+                    auto it = constraints.begin();
+                    gate_argument_str << "\t\tuint256 prod;" << std::endl;
+                    gate_argument_str << "\t\tuint256 sum;" << std::endl;
+                    gate_argument_str << "\t\tuint256 gate;" << std::endl;
+                    gate_argument_str << print_constraint_series(it, constraints.end());
+                } else {
+                    auto it = constraints.begin();
+                    while (it != constraints.end()) {
+                        std::string code = print_constraint_series(it, constraints.end());
+
+                        std::string result = modular_external_gate_library_template;
+                        boost::replace_all(result, "$TEST_NAME$", _test_name);
+                        boost::replace_all(result, "$GATE_LIB_ID$", to_string(gate_modules_count));
+                        boost::replace_all(result, "$CONSTRAINT_SERIES_CODE$", code);
+                        boost::replace_all(result, "$MODULUS$", to_string(PlaceholderParams::field_type::modulus));
+
+                        std::ofstream out;
+                        out.open(_folder_name + "/gate_" + to_string(gate_modules_count) + ".sol");
+                        out << result;
+                        out.close();
+                        _gate_includes += "import \"./gate_" + to_string(gate_modules_count) + ".sol\";\n";
+
+                        ++gate_modules_count;
                     }
-                }
-
-                auto inlined_gates_end = std::remove_if(gate_costs.begin(), gate_costs.end(),
-                    [&inlined_gate_codes](const std::pair<std::size_t, std::size_t>& cost) {
-                        return inlined_gate_codes.count(cost.first) == 1 ;
-                    });
-                gate_costs.erase(inlined_gates_end, gate_costs.end());
-
-                auto library_gates_buckets = split_items_into_buckets(gate_costs, _gates_library_size_threshold);
-                std::vector<std::size_t> gate_lib(gates_count);
-
-                for(auto const& lib: library_gates_buckets) {
-                    _gate_includes += "import \"./gate_"  + to_string(lib.first) + ".sol\";\n";
-                    for(auto g: lib.second) {
-                        gate_lib[g] = lib.first;
-                    }
-                    print_gates_library_file(lib.first, lib.second, gate_codes);
                 }
 
                 std::stringstream power_functions;
@@ -557,36 +627,22 @@ namespace nil {
                 utils << utils_library;
                 utils.close();
 
-                if (inlined_gate_codes.size() > 0) {
-                    gate_argument_str << "\t\tuint256 sum;" << std::endl;
-                    gate_argument_str << "\t\tuint256 prod;" << std::endl;
-                    gate_argument_str << "\t\tuint256 gate;" << std::endl;
+                for ( i = 0; i < gate_modules_count; ++i ) {
+                    std::string gate_eval_string = gate_call_template;
+                    boost::replace_all(gate_eval_string, "$TEST_NAME$", _test_name);
+                    boost::replace_all(gate_eval_string, "$GATE_LIB_ID$", to_string(i));
+                    gate_argument_str << gate_eval_string << std::endl;
                 }
-
                 i = 0;
-                for(const auto &gate: _constraint_system.gates()){
-                    if (inlined_gate_codes.count(i) == 1) {
-                        gate_argument_str << "/* -- gate " << i << " is inlined -- */" << std::endl;
-                        gate_argument_str << gate_codes[i] << std::endl;
-                    } else {
-                        std::string gate_eval_string = gate_call_template;
-                        boost::replace_all(gate_eval_string, "$TEST_NAME$", _test_name);
-                        boost::replace_all(gate_eval_string, "$GATE_LIB_ID$", to_string(gate_lib[i]));
-                        boost::replace_all(gate_eval_string, "$GATE_ID$", to_string(i));
-                        boost::replace_all(gate_eval_string, "$MODULUS$", to_string(PlaceholderParams::field_type::modulus));
-                        gate_argument_str << gate_eval_string << std::endl;
-                    }
-                    ++i;
-                }
 
-                if (library_gates_buckets.size() > 0) {
+                if ( gate_modules_count > 0) {
                     std::ofstream out;
                     out.open(_folder_name + "/gate_libs_list.json");
                     out << "[" << std::endl;
-                    for(i = 0; i < library_gates_buckets.size()-1; ++i ) {
+                    for(i = 0; i < gate_modules_count-1; ++i ) {
                         out << "\"" << "gate_" << _test_name << "_" << i << "\"," << std::endl;
                     }
-                    out << "\"" << "gate_" << _test_name << "_" << library_gates_buckets.size()-1 << "\"" << std::endl;
+                    out << "\"" << "gate_" << _test_name << "_" << gate_modules_count-1 << "\"" << std::endl;
                     out << "]" << std::endl;
                     out.close();
                 }
@@ -794,7 +850,6 @@ namespace nil {
             std::string _lookup_includes;
             std::size_t _gates_contract_size_threshold;
             std::size_t _lookups_contract_size_threshold;
-            std::size_t _gates_library_size_threshold;
             std::size_t _lookups_library_size_threshold;
         };
     }
