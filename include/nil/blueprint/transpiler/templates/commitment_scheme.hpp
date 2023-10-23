@@ -188,7 +188,7 @@ unchecked {
                 console.log("UNPROCESSED number of evaluation points");
                 return false;
             }
-            unchecked{ind++;}
+            ind++;
         }
 
         // Prepare combined U
@@ -245,11 +245,11 @@ unchecked {
                         }
                     } 
                     offset += state.unique_eval_points[cur_point].length * 0x20;
-                    unchecked{i++;cur++;}
+                    i++;cur++;
                 }
-                unchecked{k++;}
+                k++;
             }
-            unchecked{ind++;}
+            ind++;
         }
 }
     }
@@ -273,14 +273,14 @@ unchecked {
                     for(uint256 k = 0; k < unique_points; ){
                         values[k][0] = mulmod(values[k][0], state.theta, modulus);
                         values[k][1] = mulmod(values[k][1], state.theta, modulus);
-                        unchecked{k++;}
+                        k++;
                     }
 
                     values[cur_point][0] = addmod(values[cur_point][0], basic_marshalling.get_uint256_be(blob, offset), modulus);
                     values[cur_point][1] = addmod(values[cur_point][1], basic_marshalling.get_uint256_be(blob, offset + 0x20), modulus);
-                    unchecked{offset += 0x40;j++; cur++;}
+                    offset += 0x40;j++; cur++;
                 }
-                unchecked{b++;}
+                b++;
             }
         }
         for(uint256 p = 0; p < unique_points; ){
@@ -294,7 +294,7 @@ unchecked {
             tmp[1] = mulmod(tmp[1], field.inverse_static(polynomial.evaluate(state.denominators[p], modulus - s, modulus), modulus), modulus);
             y[0] = addmod(y[0], tmp[0], modulus);
             y[1] = addmod(y[1], tmp[1], modulus);
-            unchecked{p++;}
+            p++;
         }
 }
     }
@@ -366,9 +366,7 @@ unchecked {
                     calldataload(add(blob.offset, add(offset, 0x20)))
                 )
             }
-            unchecked{
-                k++; offset2 += 0x40; offset += 0x40;
-            }
+            k++; offset2 += 0x40; offset += 0x40;
         }
         if( !merkle_verifier.parse_verify_merkle_proof_bytes_be(blob, proof_offset, leaf, offset2 - 0x20 )){
             return false;
@@ -393,9 +391,7 @@ unchecked {
                     calldataload(add(blob.offset, offset))
                 )
             }
-            unchecked{
-                k++; offset2 += 0x40; offset += 0x40;
-            }
+            k++; offset2 += 0x40; offset += 0x40;
         }
         if( !merkle_verifier.parse_verify_merkle_proof_bytes_be(blob, proof_offset, leaf, offset2 - 0x20 )){
             return false;
@@ -448,53 +444,48 @@ unchecked {
 
             for(uint8 i = 0; i < batches_num;){
                 transcript.update_transcript_b32(tr_state, bytes32(commitments[i]));
-                unchecked{i++;}
+                i++;
             }
             state.theta = transcript.get_field_challenge(tr_state, modulus);
 
             state.points_num = basic_marshalling.get_length(blob, 0x0);
-            unchecked{
-                offset = 0x8 + state.points_num*0x20 + 0x8;
-            }
+            offset = 0x8 + state.points_num*0x20 + 0x8;
             for(uint8 i = 0; i < batches_num;){
                 state.batch_sizes[i] = uint64(uint8(blob[offset + 0x1]));
                 if( state.batch_sizes[i] > state.max_batch ) state.max_batch = state.batch_sizes[i];
                 state.poly_num += state.batch_sizes[i];
-                unchecked { i++; offset +=2;}
+                i++; offset +=2;
             }
-            unchecked{
-                offset += 0x8;
-                offset += state.poly_num;
-                state.roots_offset = offset + 0x8;
-                offset += 0x8;
-            }
+
+            offset += 0x8;
+            offset += state.poly_num;
+            state.roots_offset = offset + 0x8;
+            offset += 0x8;
+
             for( uint8 i = 0; i < r;){
                 transcript.update_transcript_b32(tr_state, bytes32(basic_marshalling.get_uint256_be(blob, offset + 0x8)));
                 state.alphas[i] = transcript.get_field_challenge(tr_state, modulus);
-                unchecked{i++; offset +=40; }
+                i++; offset +=40;
             }
 
             $GRINDING_CHECK$
                         
-            unchecked{
-                offset += 0x8 + r;
-                state.initial_data_offset = offset + 0x8;
-                offset += 0x8 + 0x20*basic_marshalling.get_length(blob, offset);
-            }
+            offset += 0x8 + r;
+            state.initial_data_offset = offset + 0x8;
+            offset += 0x8 + 0x20*basic_marshalling.get_length(blob, offset);
 
-            unchecked{
-                state.round_data_offset = offset + 0x8;
-                offset += 0x8 + 0x20*basic_marshalling.get_length(blob, offset);
-                offset += 0x8;
-            }
+            state.round_data_offset = offset + 0x8;
+            offset += 0x8 + 0x20*basic_marshalling.get_length(blob, offset);
+            offset += 0x8;
+
             state.initial_proof_offset = offset; 
             for(uint8 i = 0; i < lambda;){
                 for(uint j = 0; j < batches_num;){
                     if(basic_marshalling.get_uint256_be(blob, offset + 0x10) != commitments[j] ) return false;
                     offset = merkle_verifier.skip_merkle_proof_be(blob, offset);
-                    unchecked{j++;}
+                    j++;
                 }
-                unchecked{i++;}
+                i++;
             }
             offset += 0x8;
             state.round_proof_offset = offset;
@@ -503,16 +494,16 @@ unchecked {
                 for(uint256 j = 0; j < r;){
                     if(basic_marshalling.get_uint256_be(blob, offset + 0x10) != basic_marshalling.get_uint256_be(blob, state.roots_offset + j * 40 + 0x8) ) return false;                
                     offset = merkle_verifier.skip_merkle_proof_be(blob, offset);
-                    unchecked{j++;}
+                    j++;
                 }
-                unchecked{i++;}
+                i++;
             }
 
             state.final_polynomial = new uint256[](basic_marshalling.get_length(blob, offset));
-            unchecked{offset += 0x8;}
+            offset += 0x8;
             for (uint256 i = 0; i < state.final_polynomial.length;) {
                 state.final_polynomial[i] = basic_marshalling.get_uint256_be(blob, offset);
-                unchecked{ i++; offset+=0x20;}
+                i++; offset+=0x20;
             }
         }
         if( state.final_polynomial.length > (( 1 << (field.log2(max_degree + 1) - r + 1) ) ) ){
@@ -543,7 +534,7 @@ unchecked {
                 state.leaf_length = state.batch_sizes[j] * 0x40;
                 state.initial_data_offset += state.batch_sizes[j] * 0x40;
                 state.initial_proof_offset = merkle_verifier.skip_merkle_proof_be(blob, state.initial_proof_offset);
-                unchecked{j++;}
+                j++;
             }
             {
                 state.y = compute_combined_Q(blob, state);
@@ -568,7 +559,7 @@ unchecked {
             for(state.j = 1; state.j < r;){
                 state.x_index %= state.domain_size; 
                 state.x = mulmod(state.x, state.x, modulus);
-                state.domain_size >>= 1;                   
+                state.domain_size >>= 1;
                 if( state.x_index < state.domain_size ){
                     if(!copy_pairs_and_check(blob, state.round_data_offset, state.leaf_data, 1, state.round_proof_offset)) {
                         console.log("Error in round mekle proof");
@@ -586,7 +577,7 @@ unchecked {
                     console.log("Round colinear check failed");
                     return false;
                 }
-                unchecked{state.j++; state.round_data_offset += 0x40;}
+                state.j++; state.round_data_offset += 0x40;
                 state.round_proof_offset = merkle_verifier.skip_merkle_proof_be(blob, state.round_proof_offset);
             }
 
@@ -601,12 +592,12 @@ unchecked {
             }
             state.round_data_offset += 0x40;
             
-            unchecked{i++;}
+            i++;
         }
         return true;
 }
     }
-}        
+}
     )";
     }
 }
