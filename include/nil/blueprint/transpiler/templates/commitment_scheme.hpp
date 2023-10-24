@@ -92,7 +92,7 @@ unchecked {
     }
 
 //  coeffs for zs on each degree can be precomputed if necessary
-    function calculate_3points_interpolation(uint256[] memory xi, uint256[3] memory z, uint256 modulus)
+    function calculate_3points_interpolation(uint256[] memory xi, uint256[3] memory z)
     internal pure returns(uint256[3] memory U){
 //        require( xi.length == 3 );
 unchecked {
