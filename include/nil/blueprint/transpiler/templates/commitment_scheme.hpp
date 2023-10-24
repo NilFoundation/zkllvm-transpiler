@@ -82,7 +82,7 @@ library modular_commitment_scheme_$TEST_NAME$ {
         uint256 offset;
     }
 
-    function calculate_2points_interpolation(uint256[] memory xi, uint256[2] memory z, uint256 modulus)
+    function calculate_2points_interpolation(uint256[] memory xi, uint256[2] memory z)
     internal pure returns(uint256[2] memory U){
 //        require( xi.length == 2 );
 unchecked {
@@ -224,8 +224,7 @@ unchecked {
                             tmp[0] = basic_marshalling.get_uint256_be(blob, offset);
                             tmp[1] = basic_marshalling.get_uint256_be(blob, offset + 0x20);
                             tmp = calculate_2points_interpolation(
-                                point, tmp, modulus
-                            );
+                                point, tmp);
                             state.combined_U[ind][0] = addmod(state.combined_U[ind][0], tmp[0], modulus);
                             state.combined_U[ind][1] = addmod(state.combined_U[ind][1], tmp[1], modulus);
                         } else 
@@ -235,8 +234,7 @@ unchecked {
                             tmp[1] = basic_marshalling.get_uint256_be(blob, offset + 0x20);
                             tmp[2] = basic_marshalling.get_uint256_be(blob, offset + 0x40);
                             tmp = calculate_3points_interpolation(
-                                point, tmp, modulus
-                            );
+                                point, tmp);
                             state.combined_U[ind][0] = addmod(state.combined_U[ind][0], tmp[0], modulus);
                             state.combined_U[ind][1] = addmod(state.combined_U[ind][1], tmp[1], modulus);
                             state.combined_U[ind][2] = addmod(state.combined_U[ind][2], tmp[2], modulus);
