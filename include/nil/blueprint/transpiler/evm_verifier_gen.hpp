@@ -32,7 +32,7 @@
 #include <filesystem>
 #include <unordered_set>
 
-#include <boost/algorithm/string.hpp> 
+#include <boost/algorithm/string.hpp>
 #include <nil/blueprint/transpiler/templates/modular_verifier.hpp>
 #include <nil/blueprint/transpiler/templates/gate_argument.hpp>
 #include <nil/blueprint/transpiler/templates/permutation_argument.hpp>
@@ -49,7 +49,7 @@ namespace nil {
         template <typename PlaceholderParams>
         class evm_verifier_printer{
             using common_data_type = typename nil::crypto3::zk::snark::placeholder_public_preprocessor<
-                typename PlaceholderParams::field_type, 
+                typename PlaceholderParams::field_type,
                 PlaceholderParams
             >::preprocessed_data_type::common_data_type;
 
@@ -153,7 +153,7 @@ namespace nil {
             std::size_t term_is_power(crypto3::math::term<variable_type> const& term) {
                 const auto &vars = term.get_vars();
                 auto var = std::cbegin(vars);
-                
+
                 if (var == std::cend(vars))
                     return 0;
 
@@ -287,7 +287,7 @@ namespace nil {
                 std::size_t lookups_library_size_threshold = 1000,
                 std::size_t lookups_contract_size_threshold = 1000,
                 bool deduce_horner = true,
-                bool optimize_powers = true 
+                bool optimize_powers = true
             ) :
             _constraint_system(constraint_system),
             _common_data(common_data),
@@ -447,7 +447,7 @@ namespace nil {
             }
 
             /** @brief Split items into buckets, each bucket is limited
-             * to max_bucket_size, minimizes number of buckets. 
+             * to max_bucket_size, minimizes number of buckets.
              * items must be sorted
              * @param[in] items (item_id, item_size)
              * @param[in] max_bucket_size
@@ -561,7 +561,7 @@ namespace nil {
                 std::unordered_map<std::size_t, std::string> gate_codes;
                 std::vector<std::pair<std::size_t, std::size_t>> gate_costs(gates_count);
                 std::vector<std::size_t> gate_ids(gates_count);
-                
+
                 std::vector<constraint_info> constraints;
                 std::size_t total_cost = 0;
 
@@ -752,23 +752,23 @@ namespace nil {
                     lookup_str << "\t\t\tstate.shifted_selector_value = basic_marshalling.get_uint256_be(blob, " << _var_indices.at(shifted_sel_var) * 0x20 << ");" << std::endl;
 
                     for( const auto &option: table.lookup_options ){
-                        lookup_str << 
+                        lookup_str <<
                             "\t\t\tl = mulmod( " << table_index << ", state.selector_value, modulus);" << std::endl;
-                        lookup_str << 
+                        lookup_str <<
                             "\t\t\tstate.l_shifted = mulmod( " << table_index << ", state.shifted_selector_value, modulus);" << std::endl;
                         lookup_str << "\t\t\tstate.theta_acc=state.theta;" << std::endl;
                         for( const auto &var: option ){
-                            lookup_str << 
+                            lookup_str <<
                                 "\t\t\tl = addmod( l, mulmod(state.selector_value,  mulmod( state.theta_acc, basic_marshalling.get_uint256_be(blob, " << _var_indices.at(var) * 0x20 << "), modulus), modulus), modulus);" << std::endl;
                             variable_type shifted_var = var;
                             shifted_var.rotation = 1;
-                            lookup_str << 
+                            lookup_str <<
                                 "\t\t\tstate.l_shifted = addmod( state.l_shifted, mulmod(state.shifted_selector_value, mulmod( state.theta_acc, basic_marshalling.get_uint256_be(blob, " << _var_indices.at(shifted_var) * 0x20 << "), modulus), modulus), modulus);" << std::endl;
                             lookup_str << "\t\t\tstate.theta_acc = mulmod(state.theta_acc, state.theta, modulus);" << std::endl;
                         }
-                        lookup_str << 
+                        lookup_str <<
                             "\t\t\tl = mulmod( l, state.mask, modulus);" << std::endl;
-                        lookup_str << 
+                        lookup_str <<
                             "\t\t\tstate.l_shifted = mulmod( state.l_shifted, state.shifted_mask, modulus);" << std::endl;
                         lookup_str << "\t\t\tstate.g = mulmod(state.g, addmod( state.factor, addmod(l, mulmod(state.beta, state.l_shifted, modulus), modulus), modulus), modulus);" << std::endl;
                         j++;

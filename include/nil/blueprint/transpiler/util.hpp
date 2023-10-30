@@ -31,7 +31,7 @@
 #include <sstream>
 #include <filesystem>
 
-#include <boost/algorithm/string.hpp> 
+#include <boost/algorithm/string.hpp>
 
 namespace nil {
     namespace blueprint {
@@ -53,6 +53,16 @@ namespace nil {
             out.open(output_file_name);
             out << code;
             out.close();
+        }
+
+        std::string replace_all(std::string input, transpiler_replacements reps){
+            std::string code = input;
+
+            for(const auto&[k,v]: reps){
+                boost::replace_all(code, k, v);
+            }
+
+            return code;
         }
     }
 }
