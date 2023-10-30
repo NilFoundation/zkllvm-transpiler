@@ -27,6 +27,7 @@ const size_t initial_merkle_proofs_hash_num = $INITIAL_MERKLE_PROOFS_HASH_NUM$;
 const size_t round_merkle_proofs_position_num = $ROUND_MERKLE_PROOFS_POSITION_NUM$;
 const size_t round_merkle_proofs_hash_num = $ROUND_MERKLE_PROOFS_HASH_NUM$;
 const size_t final_polynomial_size = $FINAL_POLYNOMIAL_SIZE$;
+const size_t lambda = $LAMBDA$;
 
 struct placeholder_proof_type{
     std::array<pallas::base_field_type::value_type, commitments_num> commitments;
@@ -52,8 +53,8 @@ struct placeholder_challenges_type{
     std::array<pallas::base_field_type::value_type, 1> lookup_alphas;
     pallas::base_field_type::value_type gate_theta;
     std::array<pallas::base_field_type::value_type, 8> alphas;
-    std::array<pallas::base_field_type::value_type, 8> fri_alphas;
-    std::array<pallas::base_field_type::value_type, 8> fri_x_indices;
+    std::array<pallas::base_field_type::value_type, $FRI_ROOTS_NUM$> fri_alphas;
+    std::array<pallas::base_field_type::value_type, $LAMBDA$> fri_x_indices;
     pallas::base_field_type::value_type xi;
 };
 

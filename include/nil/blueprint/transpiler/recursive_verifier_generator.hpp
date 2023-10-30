@@ -350,6 +350,7 @@ namespace nil {
                     reps["$ROUND_MERKLE_PROOFS_POSITION_NUM$"] = to_string(lambda * round_proof_layers_num);
                     reps["$ROUND_MERKLE_PROOFS_HASH_NUM$"] = to_string(lambda * round_proof_layers_num);
                     reps["$FINAL_POLYNOMIAL_SIZE$"] = to_string(log2(fri_params.D[0]->m) - fri_params.r);
+                    reps["$LAMBDA$"] = to_string(lambda);
 
                     result = replace_all(result, reps);
                     return result;
