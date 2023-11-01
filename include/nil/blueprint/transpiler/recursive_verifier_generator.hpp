@@ -28,6 +28,7 @@
 #define CRYPTO3_RECURSIVE_VERIFIER_GENERATOR_HPP
 
 #include <sstream>
+#include <map>
 
 #include <nil/crypto3/hash/algorithm/hash.hpp>
 #include<nil/crypto3/hash/keccak.hpp>
@@ -35,6 +36,10 @@
 
 #include<nil/crypto3/hash/sha2.hpp>
 #include <nil/crypto3/algebra/random_element.hpp>
+
+#include <nil/crypto3/zk/math/expression.hpp>
+#include <nil/crypto3/zk/math/expression_visitors.hpp>
+#include <nil/crypto3/zk/math/expression_evaluator.hpp>
 
 #include<nil/blueprint/transpiler/templates/recursive_verifier.hpp>
 
@@ -49,6 +54,49 @@ namespace nil {
             using verification_key_type = typename common_data_type::verification_key_type;
             using commitment_scheme_type = typename PlaceholderParams::commitment_scheme_type;
             using constraint_system_type = typename PlaceholderParams::constraint_system_type;
+            using columns_rotations_type = std::array<std::set<int>, PlaceholderParams::total_columns>;
+            using variable_type = nil::crypto3::zk::snark::plonk_variable<typename PlaceholderParams::field_type::value_type>;
+            using variable_indices_type = std::map<variable_type, std::size_t>;
+
+            // TODO: Move logic to utils.hpp. It's similar to EVM verifier generator
+            static std::string zero_indices(columns_rotations_type col_rotations){
+                std::vector<std::size_t> zero_indices;
+                std::uint16_t fixed_values_points = 0;
+                std::stringstream result;
+
+                for(std::size_t i= 0; i < PlaceholderParams::constant_columns + PlaceholderParams::selector_columns; i++){
+                    fixed_values_points += col_rotations[i + PlaceholderParams::witness_columns + PlaceholderParams::public_input_columns].size() + 1;
+                }
+
+                for(std::size_t i= 0; i < PlaceholderParams::total_columns; i++){
+                    std::size_t j = 0;
+                    for(auto& rot: col_rotations[i]){
+                        if(rot == 0){
+                            zero_indices.push_back(j);
+                            break;
+                        }
+                        j++;
+                    }
+                }
+
+                std::uint16_t sum = fixed_values_points;
+                std::size_t i = 0;
+                for(; i < PlaceholderParams::witness_columns + PlaceholderParams::public_input_columns; i++){
+                    zero_indices[i] = sum + zero_indices[i];
+                    sum += col_rotations[i].size();
+                    if( i != 0) result << ", ";
+                    result << zero_indices[i];
+                }
+
+                sum = 0;
+                for(; i < PlaceholderParams::total_columns; i++){
+                    zero_indices[i] = sum + zero_indices[i];
+                    sum += col_rotations[i].size() + 1;
+                    if( i != 0) result << ", ";
+                    result << zero_indices[i];
+                }
+                return result.str();
+            }
 
             static std::string generate_field_array2_from_64_hex_string(std::string str){
                 BOOST_ASSERT_MSG(str.size() == 64, "input string must be 64 hex characters long");
@@ -284,6 +332,89 @@ namespace nil {
                 return out.str();
             }
 
+            // TODO move logic to utils.hpp to prevent code duplication
+            static inline variable_indices_type get_plonk_variable_indices(const columns_rotations_type &col_rotations, std::size_t start_index){
+                using variable_type = nil::crypto3::zk::snark::plonk_variable<typename PlaceholderParams::field_type::value_type>;
+                std::map<variable_type, std::size_t> result;
+                std::size_t j = 0;
+                for(std::size_t i = 0; i < PlaceholderParams::constant_columns; i++){
+                    for(auto& rot: col_rotations[i + PlaceholderParams::witness_columns + PlaceholderParams::public_input_columns]){
+                        variable_type v(i, rot, true, variable_type::column_type::constant);
+                        result[v] = j + start_index;
+                        j++;
+                    }
+                    j++;
+                }
+                for(std::size_t i = 0; i < PlaceholderParams::selector_columns; i++){
+                    for(auto& rot: col_rotations[i + PlaceholderParams::witness_columns + PlaceholderParams::public_input_columns + PlaceholderParams::constant_columns]){
+                        variable_type v(i, rot, true, variable_type::column_type::selector);
+                        result[v] = j + start_index;
+                        j++;
+                    }
+                    j++;
+                }
+                for(std::size_t i = 0; i < PlaceholderParams::witness_columns; i++){
+                    for(auto& rot: col_rotations[i]){
+                        variable_type v(i, rot, true, variable_type::column_type::witness);
+                        result[v] = j + start_index;
+                        j++;
+                    }
+                }
+                for(std::size_t i = 0; i < PlaceholderParams::public_input_columns; i++){
+                    for(auto& rot: col_rotations[i + PlaceholderParams::witness_columns]){
+                        variable_type v(i, rot, true, variable_type::column_type::public_input);
+                        result[v] = j + start_index;
+                        j++;
+                    }
+                }
+                return result;
+            }
+
+            template<typename VariableType>
+            class expression_gen_code_visitor : public boost::static_visitor<std::string> {
+                const variable_indices_type &_indices;
+            public:
+                expression_gen_code_visitor(const variable_indices_type &var_indices) :_indices(var_indices){}
+
+                std::string generate_expression(const nil::crypto3::math::expression<VariableType>& expr) {
+                    return boost::apply_visitor(*this, expr.get_expr());
+                }
+
+                std::string operator()(const nil::crypto3::math::term<VariableType>& term) {
+                    std::string result;
+                    std::vector <std::string> v;
+                    if( term.get_coeff() != field_type::value_type::one() || term.get_vars().size() == 0)
+                        v.push_back("pallas::base_field_type::value_type(0x" + to_hex_string(term.get_coeff()) + "_cppui255)");
+                    for(auto& var: term.get_vars()){
+                        v.push_back("z[" + to_string(_indices.at(var)) + "]");
+                    }
+                    for(std::size_t i = 0; i < v.size(); i++){
+                        if(i != 0) result += " * ";
+                        result += v[i];
+                    }
+                    return result;
+                }
+
+                std::string operator()(
+                        const nil::crypto3::math::pow_operation<VariableType>& pow) {
+                    std::string result = boost::apply_visitor(*this, pow.get_expr().get_expr());
+                    return "pow(" + result + ", " + to_string(pow.get_power()) + ")";
+                }
+
+                std::string operator()(
+                        const nil::crypto3::math::binary_arithmetic_operation<VariableType>& op) {
+                    std::string left = boost::apply_visitor(*this, op.get_expr_left().get_expr());
+                    std::string right = boost::apply_visitor(*this, op.get_expr_right().get_expr());
+                    switch (op.get_op()) {
+                        case nil::crypto3::math::ArithmeticOperator::ADD:
+                            return "(" + left + " + " + right + ")";
+                        case nil::crypto3::math::ArithmeticOperator::SUB:
+                            return "(" + left + " - " + right + ")";
+                        case nil::crypto3::math::ArithmeticOperator::MULT:
+                            return "(" + left + " * " + right + ")";
+                    }
+                }
+            };
 
             static inline std::string generate_recursive_verifier(
                 const constraint_system_type &constraint_system,
@@ -321,12 +452,15 @@ namespace nil {
                         + constraint_system.sorted_lookup_columns_number() + quotient_polys;
 
                     std::size_t points_num = 4 * permutation_size + 6;
+                    std::size_t table_values_num = 0;
                     for(std::size_t i = 0; i < arithmetization_params::constant_columns + arithmetization_params::selector_columns; i++){
                         points_num += common_data.columns_rotations[i + arithmetization_params::witness_columns + arithmetization_params::public_input_columns].size() + 1;
+                        table_values_num += common_data.columns_rotations[i + arithmetization_params::witness_columns + arithmetization_params::public_input_columns].size() + 1;
                     }
                     std::cout << "Fixed values points num = " << points_num << std::endl;
                     for(std::size_t i = 0; i < arithmetization_params::witness_columns + arithmetization_params::public_input_columns; i++){
                         points_num += common_data.columns_rotations[i].size();
+                        table_values_num += common_data.columns_rotations[i].size();
                     }
                     std::cout << "Variable values points num = " << points_num << std::endl;
                     points_num += use_lookups? 4 : 2;
@@ -336,6 +470,23 @@ namespace nil {
 
                     if( use_lookups ) points_num += constraint_system.sorted_lookup_columns_number() * 3;
 
+                    std::size_t constraints_amount = 0;
+                    std::string gates_sizes = "";
+                    std::stringstream constraints_body;
+                    std::size_t cur = 0;
+                    auto verifier_indices = get_plonk_variable_indices(common_data.columns_rotations, 4*permutation_size + 6);
+
+                    expression_gen_code_visitor<variable_type> visitor(verifier_indices);
+                    for(std::size_t i = 0; i < constraint_system.gates().size(); i++){
+                        constraints_amount += constraint_system.gates()[i].constraints.size();
+                        if( i != 0) gates_sizes += ", ";
+                        gates_sizes += to_string(constraint_system.gates()[i].constraints.size());
+                        for(std::size_t j = 0; j < constraint_system.gates()[i].constraints.size(); j++, cur++){
+                            constraints_body << "\tconstraints[" << cur << "] = " << visitor.generate_expression(constraint_system.gates()[i].constraints[j]) << ";" << std::endl;
+                            std::cout << visitor.generate_expression(constraint_system.gates()[i].constraints[j]) << std::endl;
+                            std::cout << constraint_system.gates()[i].constraints[j] << std::endl;
+                        }
+                    }
 
                     reps["$BATCHES_NUM$"] = to_string(batches_num);
                     reps["$COMMITMENTS_NUM$"] = to_string(batches_num - 1);
@@ -351,6 +502,21 @@ namespace nil {
                     reps["$ROUND_MERKLE_PROOFS_HASH_NUM$"] = to_string(lambda * round_proof_layers_num);
                     reps["$FINAL_POLYNOMIAL_SIZE$"] = to_string(log2(fri_params.D[0]->m) - fri_params.r);
                     reps["$LAMBDA$"] = to_string(lambda);
+                    reps["$PERMUTATION_SIZE$"] = to_string(permutation_size);
+                    reps["$ZERO_INDICES$"] = zero_indices(common_data.columns_rotations);
+                    reps["$TOTAL_COLUMNS$"] = to_string(arithmetization_params::total_columns);
+                    reps["$ROWS_AMOUNT$"] = to_string(rows_amount);
+                    reps["$TABLE_VALUES_NUM$"] = to_string(table_values_num);
+                    reps["$GATES_AMOUNT$"] = to_string(constraint_system.gates().size());
+                    reps["$CONSTRAINTS_AMOUNT$"] = to_string(constraints_amount);
+                    reps["$GATES_SIZES$"] = gates_sizes;
+                    reps["$CONSTRAINTS_BODY$"] = constraints_body.str();
+                    reps["$WITNESS_COLUMNS_AMOUNT$"] = to_string(arithmetization_params::witness_columns);
+                    reps["$PUBLIC_INPUT_COLUMNS_AMOUNT$"] = to_string(arithmetization_params::public_input_columns);
+                    reps["$CONSTANT_COLUMNS_AMOUNT$"] = to_string(arithmetization_params::constant_columns);
+                    reps["$SELECTOR_COLUMNS_AMOUNT$"] = to_string(arithmetization_params::selector_columns);
+                    reps["$QUOTIENT_POLYS_START$"] = to_string(4*permutation_size + 6 + table_values_num + (use_lookups?4:2));
+                    reps["$QUOTIENT_POLYS_AMOUNT$"] = to_string(quotient_polys);
 
                     result = replace_all(result, reps);
                     return result;
