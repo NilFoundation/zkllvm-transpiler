@@ -43,6 +43,12 @@ namespace nil {
             return strstr.str();
         }
 
+        template<typename T> std::string to_hex_string(T val) {
+            std::stringstream strstr;
+            strstr << std::hex << val << std::dec;
+            return strstr.str();
+        }
+
         void replace_and_print(std::string input, transpiler_replacements reps, std::string output_file_name){
             std::string code = input;
 

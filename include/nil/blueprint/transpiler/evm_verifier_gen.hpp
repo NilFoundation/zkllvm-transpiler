@@ -567,9 +567,11 @@ namespace nil {
 
                 i = 0;
                 for (const auto& gate: _constraint_system.gates()) {
+                    std::cout << "Gate " << i << std::endl;
                     variable_type sel_var(gate.selector_index, 0, true, variable_type::column_type::selector);
                     std::size_t j = 0;
                     for (const auto& constraint: gate.constraints) {
+                        std::cout << "Constraint " << j << std::endl;
                         std::string code = constraint_computation_code_optimized(_var_indices, constraint);
                         std::size_t cost = estimate_constraint_cost(code);
                         std::size_t selector_index = _var_indices.at(sel_var)*0x20;
@@ -584,8 +586,6 @@ namespace nil {
 
 
                 std::size_t gate_modules_count = 0;
-
-
                 std::size_t current_selector = 0;
                 if (total_cost <= _gates_contract_size_threshold) {
                     auto it = constraints.begin();
@@ -594,8 +594,10 @@ namespace nil {
                     gate_argument_str << "\t\tuint256 gate;" << std::endl;
                     gate_argument_str << print_constraint_series(it, constraints.end());
                 } else {
+                    std::cout << "I am here!" << std::endl;
                     auto it = constraints.begin();
                     while (it != constraints.end()) {
+                        std::cout << "Gates modules count" <<  gate_modules_count << std::endl;
                         std::string code = print_constraint_series(it, constraints.end());
 
                         std::string result = modular_external_gate_library_template;
@@ -615,6 +617,7 @@ namespace nil {
                         ++gate_modules_count;
                     }
                 }
+                std::cout << "Finished" << std::endl;
 
                 if (_term_powers.size() > 0) {
                     std::stringstream power_functions;
