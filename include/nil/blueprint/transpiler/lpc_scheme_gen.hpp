@@ -142,6 +142,7 @@ namespace nil {
             std::stringstream points_initializer;
             std::size_t i = 0;
             for(const auto& point: unique_points){
+                std::cout << "unique point: " << point << std::endl;
                 points_initializer << "\t\t result[" << i << "] = new uint256[](" << std::count(point.begin(), point.end(), '&') << ");" << std::endl;
                 std::size_t prev = 0;
                 std::size_t found = point.find("& ");

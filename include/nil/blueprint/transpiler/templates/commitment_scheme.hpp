@@ -130,24 +130,24 @@ unchecked {
                 state.factors[ind] = 1;
                 state.denominators[ind][0] = modulus - state.unique_eval_points[ind][0];
                 state.denominators[ind][1] = 1;
-            } else 
+            } else
             if( state.unique_eval_points[ind].length == 2 ){
                 // xi1 - xi0
-                state.factors[ind] = 
+                state.factors[ind] =
                     addmod(state.unique_eval_points[ind][1], modulus - state.unique_eval_points[ind][0], modulus);
                 state.denominators[ind][2] = 1;
 
-                state.denominators[ind][1] = 
+                state.denominators[ind][1] =
                     modulus - addmod(state.unique_eval_points[ind][0], state.unique_eval_points[ind][1], modulus);
 
-                state.denominators[ind][0] = 
+                state.denominators[ind][0] =
                     mulmod(state.unique_eval_points[ind][0], state.unique_eval_points[ind][1], modulus);
                 state.denominators[ind][0] = mulmod(state.denominators[ind][0], state.factors[ind], modulus);
                 state.denominators[ind][1] = mulmod(state.denominators[ind][1], state.factors[ind], modulus);
                 state.denominators[ind][2] = mulmod(state.denominators[ind][2], state.factors[ind], modulus);
-            } else 
+            } else
             if( state.unique_eval_points[ind].length == 3 ){
-                state.factors[ind] = modulus - 
+                state.factors[ind] = modulus -
                     mulmod(
                         mulmod(
                             addmod(state.unique_eval_points[ind][0], modulus - state.unique_eval_points[ind][1], modulus),
@@ -160,24 +160,24 @@ unchecked {
                 state.denominators[ind][3] = 1;
                 state.denominators[ind][2] =
                     modulus - addmod(
-                        state.unique_eval_points[ind][0], 
-                        addmod(state.unique_eval_points[ind][1],state.unique_eval_points[ind][2], modulus), 
+                        state.unique_eval_points[ind][0],
+                        addmod(state.unique_eval_points[ind][1],state.unique_eval_points[ind][2], modulus),
                         modulus
                     );
-                state.denominators[ind][1] = 
+                state.denominators[ind][1] =
                     addmod(
                         mulmod(state.unique_eval_points[ind][0], state.unique_eval_points[ind][1], modulus),
                         addmod(
                             mulmod(state.unique_eval_points[ind][0], state.unique_eval_points[ind][2], modulus),
                             mulmod(state.unique_eval_points[ind][1], state.unique_eval_points[ind][2], modulus),
                             modulus
-                        ), 
+                        ),
                         modulus
                     );
-                state.denominators[ind][0] = 
+                state.denominators[ind][0] =
                     modulus - mulmod(
-                        state.unique_eval_points[ind][0], 
-                        mulmod(state.unique_eval_points[ind][1],state.unique_eval_points[ind][2], modulus), 
+                        state.unique_eval_points[ind][0],
+                        mulmod(state.unique_eval_points[ind][1],state.unique_eval_points[ind][2], modulus),
                         modulus
                     );
                 state.denominators[ind][0] = mulmod(state.denominators[ind][0], state.factors[ind], modulus);
@@ -198,7 +198,7 @@ unchecked {
             uint64 cur = 0;
             uint256 offset = 0x8;
             for( uint256 k = 0; k < batches_num;){
-                for( uint256 i = 0; i < state.batch_sizes[k];){   
+                for( uint256 i = 0; i < state.batch_sizes[k];){
                     uint256 cur_point = 0;
                     if(cur < points_ids.length ) cur_point = uint8(points_ids[cur]);
                     else if(k == 2) cur_point = permutation_point;
@@ -207,18 +207,18 @@ unchecked {
                     else console.log("Wrong index");
 
                     polynomial.multiply_poly_on_coeff(
-                        state.combined_U[ind], 
-                        state.theta, 
+                        state.combined_U[ind],
+                        state.theta,
                         modulus
                     );
                     if( cur_point == ind ){
                         if( point.length == 1 ){
                             state.combined_U[ind][0] = addmod(
                                 state.combined_U[ind][0],
-                                basic_marshalling.get_uint256_be(blob, offset), 
+                                basic_marshalling.get_uint256_be(blob, offset),
                                 modulus
                             );
-                        }  else 
+                        }  else
                         if( point.length == 2 ){
                             uint256[2] memory tmp;
                             tmp[0] = basic_marshalling.get_uint256_be(blob, offset);
@@ -227,7 +227,7 @@ unchecked {
                                 point, tmp);
                             state.combined_U[ind][0] = addmod(state.combined_U[ind][0], tmp[0], modulus);
                             state.combined_U[ind][1] = addmod(state.combined_U[ind][1], tmp[1], modulus);
-                        } else 
+                        } else
                         if( point.length == 3){
                             uint256[3] memory tmp;
                             tmp[0] = basic_marshalling.get_uint256_be(blob, offset);
@@ -241,7 +241,7 @@ unchecked {
                         } else {
                             return false;
                         }
-                    } 
+                    }
                     offset += state.unique_eval_points[cur_point].length * 0x20;
                     i++;cur++;
                 }
@@ -307,17 +307,17 @@ unchecked {
         tr_state_after = tr_state.current_challenge;
     }
 
-    function copy_memory_pair_and_check(bytes calldata blob, uint256 proof_offset, bytes memory leaf, uint256[2] memory pair) 
+    function copy_memory_pair_and_check(bytes calldata blob, uint256 proof_offset, bytes memory leaf, uint256[2] memory pair)
     internal pure returns(bool b){
         uint256 c = pair[0];
         uint256 d = pair[1];
         assembly{
             mstore(
-                add(leaf, 0x20), 
+                add(leaf, 0x20),
                 c
             )
             mstore(
-                add(leaf, 0x40), 
+                add(leaf, 0x40),
                 d
             )
         }
@@ -328,17 +328,17 @@ unchecked {
         }
     }
 
-    function copy_reverted_memory_pair_and_check(bytes calldata blob, uint256 proof_offset, bytes memory leaf, uint256[2] memory pair) 
+    function copy_reverted_memory_pair_and_check(bytes calldata blob, uint256 proof_offset, bytes memory leaf, uint256[2] memory pair)
     internal pure returns(bool b){
         uint256 c = pair[0];
         uint256 d = pair[1];
         assembly{
             mstore(
-                add(leaf, 0x20), 
+                add(leaf, 0x20),
                 d
             )
             mstore(
-                add(leaf, 0x40), 
+                add(leaf, 0x40),
                 c
             )
         }
@@ -349,18 +349,18 @@ unchecked {
         }
     }
 
-    function copy_pairs_and_check(bytes calldata blob, uint256 offset, bytes memory leaf, uint256 size, uint256 proof_offset) 
+    function copy_pairs_and_check(bytes calldata blob, uint256 offset, bytes memory leaf, uint256 size, uint256 proof_offset)
     internal pure returns(bool b){
 unchecked {
         uint256 offset2 = 0x20;
         for(uint256 k = 0; k < size;){
             assembly{
                 mstore(
-                    add(leaf, offset2), 
+                    add(leaf, offset2),
                     calldataload(add(blob.offset, offset))
                 )
                 mstore(
-                    add(leaf, add(offset2, 0x20)), 
+                    add(leaf, add(offset2, 0x20)),
                     calldataload(add(blob.offset, add(offset, 0x20)))
                 )
             }
@@ -374,18 +374,18 @@ unchecked {
 }
     }
 
-    function copy_reverted_pairs_and_check(bytes calldata blob, uint256 offset, bytes memory leaf, uint256 size, uint256 proof_offset) 
+    function copy_reverted_pairs_and_check(bytes calldata blob, uint256 offset, bytes memory leaf, uint256 size, uint256 proof_offset)
     internal pure returns(bool){
 unchecked {
         uint256 offset2 = 0x20;
         for(uint256 k = 0; k < size;){
             assembly{
                 mstore(
-                    add(leaf, offset2), 
+                    add(leaf, offset2),
                     calldataload(add(blob.offset, add(offset, 0x20)))
                 )
                 mstore(
-                    add(leaf, add(offset2, 0x20)), 
+                    add(leaf, add(offset2, 0x20)),
                     calldataload(add(blob.offset, offset))
                 )
             }
@@ -409,7 +409,7 @@ unchecked {
             tmp,
             mulmod(
                 alpha,
-                addmod(y[0], modulus-y[1], modulus), 
+                addmod(y[0], modulus-y[1], modulus),
                 modulus
             ),
             modulus
@@ -467,7 +467,7 @@ unchecked {
             }
 
             $GRINDING_CHECK$
-                        
+
             offset += 0x8 + r;
             state.initial_data_offset = offset + 0x8;
             offset += 0x8 + 0x20*basic_marshalling.get_length(blob, offset);
@@ -476,7 +476,7 @@ unchecked {
             offset += 0x8 + 0x20*basic_marshalling.get_length(blob, offset);
             offset += 0x8;
 
-            state.initial_proof_offset = offset; 
+            state.initial_proof_offset = offset;
             for(uint8 i = 0; i < lambda;){
                 for(uint j = 0; j < batches_num;){
                     if(basic_marshalling.get_uint256_be(blob, offset + 0x10) != commitments[j] ) return false;
@@ -490,7 +490,7 @@ unchecked {
 
             for(uint256 i = 0; i < lambda;){
                 for(uint256 j = 0; j < r;){
-                    if(basic_marshalling.get_uint256_be(blob, offset + 0x10) != basic_marshalling.get_uint256_be(blob, state.roots_offset + j * 40 + 0x8) ) return false;                
+                    if(basic_marshalling.get_uint256_be(blob, offset + 0x10) != basic_marshalling.get_uint256_be(blob, state.roots_offset + j * 40 + 0x8) ) return false;
                     offset = merkle_verifier.skip_merkle_proof_be(blob, offset);
                     j++;
                 }
@@ -555,7 +555,7 @@ unchecked {
 
             state.round_proof_offset = merkle_verifier.skip_merkle_proof_be(blob, state.round_proof_offset);
             for(state.j = 1; state.j < r;){
-                state.x_index %= state.domain_size; 
+                state.x_index %= state.domain_size;
                 state.x = mulmod(state.x, state.x, modulus);
                 state.domain_size >>= 1;
                 if( state.x_index < state.domain_size ){
@@ -589,7 +589,7 @@ unchecked {
                 return false;
             }
             state.round_data_offset += 0x40;
-            
+
             i++;
         }
         return true;
