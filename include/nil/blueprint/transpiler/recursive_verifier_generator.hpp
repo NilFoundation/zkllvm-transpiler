@@ -222,7 +222,7 @@ namespace nil {
                         for( const auto &[j, initial_proof]: eval_proof.fri_proof.query_proofs[i].initial_proof){
                             for( std::size_t k = 0; k < initial_proof.p.path().size(); k++){
                                 if(cur != 0) out << "," << std::endl;
-                                out << "\t\t\t{\"field\":" << initial_proof.p.path()[k][0].position() << "}";
+                                out << "\t\t\t{\"int\":" << initial_proof.p.path()[k][0].position() << "}";
                                 cur ++;
                             }
                             break;
@@ -254,7 +254,7 @@ namespace nil {
                             const auto& p = eval_proof.fri_proof.query_proofs[i].round_proofs[j].p;
                             for( std::size_t k = 0; k < p.path().size(); k++){
                                 if(cur != 0) out << "," << std::endl;
-                                out << "\t\t\t{\"field\": " << p.path()[k][0].position() << "}";
+                                out << "\t\t\t{\"int\": " << p.path()[k][0].position() << "}";
                                 cur++;
                             }
                         }
@@ -416,6 +416,168 @@ namespace nil {
                 }
             };
 
+            static inline std::string rot_string (int j){
+                if(j == 0) return "xi"; else
+                if(j == 1 ) return "xi*omega"; else
+                if(j == -1) return "xi/omega"; else
+                if(j > 0) return "xi*pow(omega, " + to_string(j) + ")"; else
+                if(j < 0) return "xi/pow(omega, " + to_string(-j) + ")";
+                return "";
+            }
+
+            static inline std::vector<std::string> split_point_string(std::string point){
+                std::vector<std::string> result;
+                std::size_t found = point.find("& ");
+                std::size_t j = 0;
+                std::size_t prev = 0;
+                while (found!=std::string::npos){
+                    result.push_back(point.substr(prev, found-prev));
+                    prev = found + 2;
+                    found = point.find("& ",prev);
+                    j++;
+                }
+                return result;
+            }
+
+            static inline std::string generate_combined_Q_computation(
+                std::vector<std::vector<std::string>> unique_points,
+                std::vector<std::size_t> point_ids
+            ){
+                std::stringstream out;
+/*              out << "\t\tstd::array<std::array<pallas::base_field_type::value_type, 2>, unique_points> V_eval; "<< std::endl;
+                for(std::size_t i = 0; i < unique_points.size(); i++){
+                    out << "\t\tV_eval["<<i<<"][0] = eval4(V["<< i <<"], res[0][0]);" << std::endl;
+                    out << "\t\tV_eval["<<i<<"][1] = eval4(V["<< i <<"], res[0][1]);" << std::endl;
+                }
+                out << "\t\tcombined_Q[0] = pallas::base_field_type::value_type(0);"<< std::endl;
+                out << "\t\tcombined_Q[1] = pallas::base_field_type::value_type(0);"<< std::endl;
+               for(std::size_t i = 0; i < point_ids.size(); i++){
+                    out << "\t\tcombined_Q[0] = combined_Q[0] * challenges.lpc_theta;"<< std::endl;
+                    out << "\t\tcombined_Q[1] = combined_Q[1] * challenges.lpc_theta;"<< std::endl;
+                    if(point_ids[i] == 0){
+                        out << "\t\tcombined_Q[0] = "<<
+                            "combined_Q[0] + (proof.initial_proof_values[initial_proof_ind]);" << std::endl; //" - eval3(U["<<i << "], res[0][0]))/V_eval["<<point_ids[i]<<"][0];"<< std::endl;
+                        out << "\t\tcombined_Q[1] = "<<
+                            "combined_Q[1] + (proof.initial_proof_values[initial_proof_ind + 1]);" << std::endl;// - eval3(U["<<i << "], res[0][1]))/V_eval["<<point_ids[i]<<"][1];"<< std::endl;
+                    }
+                    out << "\t\tinitial_proof_ind = initial_proof_ind + 2; " << std::endl;
+                }*/
+               return out.str();
+            }
+
+            static inline std::tuple<
+                std::vector<std::vector<std::string>>, std::vector<std::size_t>, std::map<std::string, std::size_t>
+            > calculate_unique_points(
+                const common_data_type &common_data,
+                std::size_t permutation_size,
+                bool use_lookups,
+                std::size_t quotient_size,
+                std::size_t sorted_size
+            ){
+                std::set<std::string> unique_points;
+                std::vector<std::string> points;
+                std::map<std::string, std::size_t> singles;
+                std::vector<std::vector<std::string>> result;
+                std::vector<std::size_t> points_ids;
+
+                singles["etha"] = singles.size();
+                singles[rot_string(0)] = singles.size();
+                singles[rot_string(1)] = singles.size();
+
+                for(std::size_t i = 0; i < permutation_size*2; i++){
+                    points.push_back(rot_string(0) + "& etha& ");
+                }
+                unique_points.insert(rot_string(0) + "& etha& ");
+                points.push_back(rot_string(0) + "& "+ rot_string(1) + "& etha& ");
+                points.push_back(rot_string(0) + "& "+ rot_string(1) + "& etha& ");
+                unique_points.insert(rot_string(0) + "& "+ rot_string(1) + "& etha& ");
+
+                for(std::size_t i = 0; i < PlaceholderParams::constant_columns; i++){
+                    std::stringstream str;
+                    for(auto j:common_data.columns_rotations[i + PlaceholderParams::witness_columns + PlaceholderParams::public_input_columns]){
+                        if(singles.find(rot_string(j)) == singles.end())
+                            singles[rot_string(j)] = singles.size();
+                        str << rot_string(j) << "& ";
+                    }
+                    str << "etha& ";
+                    unique_points.insert(str.str());
+                    points.push_back(str.str());
+                }
+
+                for(std::size_t i = 0; i < PlaceholderParams::selector_columns; i++){
+                    std::stringstream str;
+                    for(auto j:common_data.columns_rotations[i + PlaceholderParams::witness_columns + PlaceholderParams::public_input_columns + PlaceholderParams::constant_columns]){
+                        if(singles.find(rot_string(j)) == singles.end())
+                            singles[rot_string(j)] = singles.size();
+                        str << rot_string(j) << "& ";
+                    }
+                    str << "etha& ";
+                    unique_points.insert(str.str());
+                    points.push_back(str.str());
+                }
+
+                for(std::size_t i = 0; i < PlaceholderParams::witness_columns; i++){
+                    std::stringstream str;
+                    for(auto j:common_data.columns_rotations[i]){
+                        if(singles.find(rot_string(j)) == singles.end())
+                            singles[rot_string(j)] = singles.size();
+                        str << rot_string(j) << "& ";
+                    }
+                    unique_points.insert(str.str());
+                    points.push_back(str.str());
+                }
+
+                for(std::size_t i = 0; i < PlaceholderParams::public_input_columns; i++){
+                    std::stringstream str;
+                    for(auto j:common_data.columns_rotations[i + PlaceholderParams::witness_columns]){
+                        if(singles.find(rot_string(j)) == singles.end())
+                            singles[rot_string(j)] = singles.size();
+                        str << rot_string(j) << "& ";
+                    }
+                    unique_points.insert(str.str());
+                    points.push_back(str.str());
+                }
+
+                unique_points.insert(rot_string(0) + "& " + rot_string(1) + "& ");//Permutation
+                points.push_back(rot_string(0) + "& " + rot_string(1) + "& ");
+                if(use_lookups){
+                    points.push_back(rot_string(0) + "& " + rot_string(1) + "& ");
+                }
+                unique_points.insert(rot_string(0) + "& ");// Quotient
+                for(std::size_t i = 0; i < quotient_size; i++){
+                    points.push_back(rot_string(0) + "& ");
+                }
+                if(use_lookups){
+                    unique_points.insert(rot_string(0) + "& " + rot_string(1) + "& " + rot_string(common_data.usable_rows_amount) + "& "); // Lookups
+                    for( std::size_t i = 0; i < sorted_size; i++ ){
+                        points.push_back(rot_string(0) + "& " + rot_string(1) + "& " + rot_string(common_data.usable_rows_amount) + "& ");
+                    }
+                    singles[rot_string(common_data.usable_rows_amount)], singles.size();
+                }
+
+                for(std::size_t i = 0; i < points.size(); i++){
+                    std::size_t j = 0;
+                    bool found = false;
+                    for(const auto &unique_point:unique_points){
+                        if(points[i] == unique_point){
+                            found = true;
+                            points_ids.push_back(j);
+                            break;
+                        }
+                        j++;
+                    }
+                    BOOST_ASSERT(found);
+                }
+
+                for( const auto &p: unique_points){
+                    std::cout << "Point " << p << std::endl;
+                    result.push_back(split_point_string(p));
+                }
+
+                std::cout << unique_points.size() << " unique points" << std::endl;
+                return std::make_tuple(result, points_ids, singles);
+            }
+
             static inline std::string generate_recursive_verifier(
                 const constraint_system_type &constraint_system,
                 const common_data_type &common_data,
@@ -488,6 +650,51 @@ namespace nil {
                         }
                     }
 
+                    std::vector<std::vector<std::string>> unique_points;
+                    std::vector<std::size_t> point_ids;
+                    std::map<std::string, std::size_t> singles;
+                    std::tie(unique_points, point_ids, singles) = calculate_unique_points(
+                        common_data, permutation_size, use_lookups, quotient_polys, 0
+                    );
+
+                    std::string point_inds_str = "";
+                    for(std::size_t i = 0; i < point_ids.size(); i++){
+                        if( i != 0) point_inds_str += ", ";
+                        point_inds_str += to_string(point_ids[i]);
+                    }
+
+                    std::string singles_str = "";
+                    for(const auto &[k, v]: singles){
+                        singles_str+= "\tsingles[" + to_string(v) + "] = " + k + ";\n";
+                    }
+
+                    std::stringstream prepare_U_V_str;
+                    for(std::size_t i = 0; i < unique_points.size(); i++){
+                        prepare_U_V_str << "\tV[" << i << "] = getV"<< unique_points[i].size() << "(";
+                        for(std::size_t j = 0; j < unique_points[i].size(); j++ ){
+                            if(j != 0) prepare_U_V_str << ", ";
+                            prepare_U_V_str << "singles[" << singles[unique_points[i][j]] << "]";
+                        }
+                        prepare_U_V_str << ");" << std::endl;;
+                    }
+                    for(std::size_t i = 0; i < point_ids.size(); i++){
+                        prepare_U_V_str << "\tU[" << i << "] = getU"<< unique_points[point_ids[i]].size() << "(";
+                        for(std::size_t j = 0; j < unique_points[point_ids[i]].size(); j++ ){
+                            if(j != 0) prepare_U_V_str << ", ";
+                            prepare_U_V_str << "singles[" << singles[unique_points[point_ids[i]][j]] << "]";
+                        }
+                        for(std::size_t j = 0; j < unique_points[point_ids[i]].size(); j++ ){
+                            prepare_U_V_str << ", ";
+                            if( j == 0 )
+                                prepare_U_V_str << "proof.z[z_ind]";
+                            else
+                                prepare_U_V_str << "proof.z[z_ind + "<< j <<" ]";
+                        }
+                        prepare_U_V_str << ");" << std::endl;
+                        prepare_U_V_str << "\tz_ind = z_ind + " << unique_points[point_ids[i]].size() << ";" << std::endl;
+                    }
+
+
                     reps["$BATCHES_NUM$"] = to_string(batches_num);
                     reps["$COMMITMENTS_NUM$"] = to_string(batches_num - 1);
                     reps["$POINTS_NUM$"] = to_string(points_num);
@@ -500,11 +707,12 @@ namespace nil {
                     reps["$INITIAL_MERKLE_PROOFS_HASH_NUM$"] = to_string(lambda * (log2(fri_params.D[0]->m) - 1) * batches_num);
                     reps["$ROUND_MERKLE_PROOFS_POSITION_NUM$"] = to_string(lambda * round_proof_layers_num);
                     reps["$ROUND_MERKLE_PROOFS_HASH_NUM$"] = to_string(lambda * round_proof_layers_num);
-                    reps["$FINAL_POLYNOMIAL_SIZE$"] = to_string(log2(fri_params.D[0]->m) - fri_params.r);
+                    reps["$FINAL_POLYNOMIAL_SIZE$"] = to_string(std::pow(2, std::log2(fri_params.max_degree + 1) - fri_params.r + 1) - 2);
                     reps["$LAMBDA$"] = to_string(lambda);
                     reps["$PERMUTATION_SIZE$"] = to_string(permutation_size);
                     reps["$ZERO_INDICES$"] = zero_indices(common_data.columns_rotations);
                     reps["$TOTAL_COLUMNS$"] = to_string(arithmetization_params::total_columns);
+                    reps["$ROWS_LOG$"] = to_string(log2(rows_amount));
                     reps["$ROWS_AMOUNT$"] = to_string(rows_amount);
                     reps["$TABLE_VALUES_NUM$"] = to_string(table_values_num);
                     reps["$GATES_AMOUNT$"] = to_string(constraint_system.gates().size());
@@ -517,6 +725,17 @@ namespace nil {
                     reps["$SELECTOR_COLUMNS_AMOUNT$"] = to_string(arithmetization_params::selector_columns);
                     reps["$QUOTIENT_POLYS_START$"] = to_string(4*permutation_size + 6 + table_values_num + (use_lookups?4:2));
                     reps["$QUOTIENT_POLYS_AMOUNT$"] = to_string(quotient_polys);
+                    reps["$D0_SIZE$"] = to_string(fri_params.D[0]->m);
+                    reps["$D0_LOG$"] = to_string(log2(fri_params.D[0]->m));
+                    reps["$D0_OMEGA$"] = "pallas::base_field_type::value_type(0x" + to_hex_string(fri_params.D[0]->get_domain_element(1)) + "_cppui255)";
+                    reps["$OMEGA$"] = "pallas::base_field_type::value_type(0x" + to_hex_string(common_data.basic_domain->get_domain_element(1)) + "_cppui255)";
+                    reps["$FRI_ROUNDS$"] = to_string(fri_params.r);
+                    reps["$UNIQUE_POINTS$"] = to_string(unique_points.size());
+                    reps["$POINTS_IDS$"] = point_inds_str;
+                    reps["$COMBINED_Q_COMPUTATION$"] = generate_combined_Q_computation(unique_points, point_ids);
+                    reps["$SINGLES_AMOUNT$"] = to_string(singles.size());
+                    reps["$SINGLES_COMPUTATION$"] = singles_str;
+                    reps["$PREPARE_U_AND_V$"] = prepare_U_V_str.str();
 
                     result = replace_all(result, reps);
                     return result;
