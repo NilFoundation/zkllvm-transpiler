@@ -151,7 +151,7 @@ contract modular_verifier_$TEST_NAME$ is IModularVerifier{
     function verify(
         bytes calldata blob,
         uint256[] calldata public_input
-    ) public view{
+    ) public view returns (bool result) {
         verifier_state memory state;
         state.b = true;
         state.gas = gasleft();
@@ -266,6 +266,7 @@ contract modular_verifier_$TEST_NAME$ is IModularVerifier{
         }
 
         console.log("Gas for verification:", state.gas-gasleft());
+        result = state.b;
     }
 }
         )";
