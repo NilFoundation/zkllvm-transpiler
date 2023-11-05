@@ -318,6 +318,7 @@ namespace nil {
                 }
 
                 _permutation_offset = _variable_values_offset;
+                _public_input_offset = _variable_values_offset;
                 for( std::size_t i = 0; i < PlaceholderParams::arithmetization_params::witness_columns + PlaceholderParams::arithmetization_params::public_input_columns; i++){
                     if(i == PlaceholderParams::arithmetization_params::witness_columns){
                         _public_input_offset = _permutation_offset;
