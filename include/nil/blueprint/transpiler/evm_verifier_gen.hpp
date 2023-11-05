@@ -567,11 +567,9 @@ namespace nil {
 
                 i = 0;
                 for (const auto& gate: _constraint_system.gates()) {
-                    std::cout << "Gate " << i << std::endl;
                     variable_type sel_var(gate.selector_index, 0, true, variable_type::column_type::selector);
                     std::size_t j = 0;
                     for (const auto& constraint: gate.constraints) {
-                        std::cout << "Constraint " << j << std::endl;
                         std::string code = constraint_computation_code_optimized(_var_indices, constraint);
                         std::size_t cost = estimate_constraint_cost(code);
                         std::size_t selector_index = _var_indices.at(sel_var)*0x20;
