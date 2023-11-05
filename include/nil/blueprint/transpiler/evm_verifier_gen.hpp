@@ -603,6 +603,8 @@ namespace nil {
                         boost::replace_all(result, "$GATE_LIB_ID$", to_string(gate_modules_count));
                         boost::replace_all(result, "$CONSTRAINT_SERIES_CODE$", code);
                         boost::replace_all(result, "$MODULUS$", to_string(PlaceholderParams::field_type::modulus));
+                        boost::replace_all(result, "$UTILS_LIBRARY_IMPORT$", _term_powers.size() >0? "import \"./utils.sol\";" : "");
+
 
                         std::ofstream out;
                         out.open(_folder_name + "/gate_" + to_string(gate_modules_count) + ".sol");
@@ -614,19 +616,21 @@ namespace nil {
                     }
                 }
 
-                std::stringstream power_functions;
-                for(std::size_t power: _term_powers) {
-                    power_functions << generate_power_function(power);
-                }
+                if (_term_powers.size() > 0) {
+                    std::stringstream power_functions;
+                    for(std::size_t power: _term_powers) {
+                        power_functions << generate_power_function(power);
+                    }
 
-                std::string utils_library(utils_library_template);
-                boost::replace_all(utils_library, "$MODULUS$", to_string(PlaceholderParams::field_type::modulus));
-                boost::replace_all(utils_library, "$POWER_FUNCTIONS$", power_functions.str());
-                boost::replace_all(utils_library, "$TEST_NAME$", _test_name);
-                std::ofstream utils;
-                utils.open(_folder_name + "/utils.sol");
-                utils << utils_library;
-                utils.close();
+                    std::string utils_library(utils_library_template);
+                    boost::replace_all(utils_library, "$MODULUS$", to_string(PlaceholderParams::field_type::modulus));
+                    boost::replace_all(utils_library, "$POWER_FUNCTIONS$", power_functions.str());
+                    boost::replace_all(utils_library, "$TEST_NAME$", _test_name);
+                    std::ofstream utils;
+                    utils.open(_folder_name + "/utils.sol");
+                    utils << utils_library;
+                    utils.close();
+                }
 
                 for ( i = 0; i < gate_modules_count; ++i ) {
                     std::string gate_eval_string = gate_call_template;
