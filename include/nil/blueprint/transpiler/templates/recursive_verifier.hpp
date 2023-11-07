@@ -10,10 +10,12 @@ namespace nil {
 #include <nil/crypto3/hash/poseidon.hpp>
 #include <nil/crypto3/algebra/curves/pallas.hpp>
 
+$USE_LOOKUPS_DEFINE$
+
 using namespace nil::crypto3;
 using namespace nil::crypto3::algebra::curves;
 
-const bool use_lookups = false;
+const bool use_lookups = $USE_LOOKUPS$;
 const size_t batches_num = $BATCHES_NUM$;
 const size_t commitments_num = $COMMITMENTS_NUM$;
 const size_t points_num = $POINTS_NUM$;
@@ -31,10 +33,12 @@ const size_t lambda = $LAMBDA$;
 const size_t rows_amount = $ROWS_AMOUNT$;
 const size_t rows_log = $ROWS_LOG$;
 const size_t total_columns = $TOTAL_COLUMNS$;
+const size_t sorted_columns = $SORTED_COLUMNS$;
 const size_t permutation_size = $PERMUTATION_SIZE$;
 const std::array<size_t, total_columns> zero_indices = {$ZERO_INDICES$};
 const size_t table_values_num = $TABLE_VALUES_NUM$;
 const size_t gates_amount = $GATES_AMOUNT$;
+constexpr std::array<std::size_t, gates_amount> gates_selector_indices = {$GATES_SELECTOR_INDICES$};
 const size_t constraints_amount = $CONSTRAINTS_AMOUNT$;
 const size_t witness_amount = $WITNESS_COLUMNS_AMOUNT$;
 const size_t public_input_amount = $PUBLIC_INPUT_COLUMNS_AMOUNT$;
@@ -42,6 +46,7 @@ const size_t constant_amount = $CONSTANT_COLUMNS_AMOUNT$;
 const size_t selector_amount = $SELECTOR_COLUMNS_AMOUNT$;
 const size_t quotient_polys_start = $QUOTIENT_POLYS_START$;
 const size_t quotient_polys_amount = $QUOTIENT_POLYS_AMOUNT$;
+const size_t lookup_sorted_polys_start = $LOOKUP_SORTED_START$;
 const size_t D0_size = $D0_SIZE$;
 const size_t D0_log = $D0_LOG$;
 const pallas::base_field_type::value_type D0_omega = $D0_OMEGA$;
@@ -51,6 +56,36 @@ const std::array<int, gates_amount> gates_sizes = {$GATES_SIZES$};
 const size_t unique_points = $UNIQUE_POINTS$;
 const std::array<int, poly_num> point_ids = {$POINTS_IDS$};
 const size_t singles_amount = $SINGLES_AMOUNT$;
+
+#ifdef __USE_LOOKUPS__
+const size_t lookup_table_amount = $LOOKUP_TABLE_AMOUNT$;
+const size_t lookup_gate_amount = $LOOKUP_GATE_AMOUNT$;
+constexpr std::array<std::size_t, lookup_table_amount> lookup_options_amount_list = {$LOOKUP_OPTIONS_AMOUNT_LIST$};
+constexpr std::array<std::size_t, lookup_table_amount> lookup_tables_columns_amount_list = {$LOOKUP_TABLES_COLUMNS_AMOUNT_LIST$};
+constexpr std::size_t lookup_options_amount = $LOOKUP_OPTIONS_AMOUNT$;
+constexpr std::size_t lookup_table_columns_amount = $LOOKUP_TABLES_COLUMNS_AMOUNT$;
+
+constexpr std::array<std::size_t, lookup_gate_amount> lookup_constraints_amount_list = {$LOOKUP_CONSTRAINTS_AMOUNT_LIST$};
+constexpr std::size_t lookup_constraints_amount = $LOOKUP_CONSTRAINTS_AMOUNT$;
+constexpr std::array<std::size_t, lookup_constraints_amount> lookup_expressions_amount_list = {$LOOKUP_EXPRESSIONS_AMOUNT_LIST$};
+constexpr std::size_t lookup_expressions_amount = $LOOKUP_EXPRESSIONS_AMOUNT$;
+
+
+constexpr std::size_t m_parameter = lookup_options_amount + lookup_constraints_amount;
+constexpr std::size_t input_size_alphas = m_parameter - 1;
+
+constexpr std::size_t input_size_lookup_gate_selectors = lookup_gate_amount;
+constexpr std::size_t input_size_lookup_gate_constraints_table_ids = lookup_constraints_amount;
+constexpr std::size_t input_size_lookup_gate_constraints_lookup_inputs = lookup_expressions_amount;
+
+constexpr std::size_t input_size_lookup_table_selectors = lookup_table_amount;
+constexpr std::size_t input_size_lookup_table_lookup_options = lookup_table_columns_amount;
+
+constexpr std::size_t input_size_shifted_lookup_table_selectors = lookup_table_amount;
+constexpr std::size_t input_size_shifted_lookup_table_lookup_options = lookup_table_columns_amount;
+
+constexpr std::size_t input_size_sorted = m_parameter * 3 - 1;
+#endif
 
 struct placeholder_proof_type{
     std::array<pallas::base_field_type::value_type, commitments_num> commitments;
@@ -73,7 +108,7 @@ struct placeholder_challenges_type{
     pallas::base_field_type::value_type lookup_theta;
     pallas::base_field_type::value_type lookup_gamma;
     pallas::base_field_type::value_type lookup_beta;
-    std::array<pallas::base_field_type::value_type, 1> lookup_alphas;
+    std::array<pallas::base_field_type::value_type, $SORTED_ALPHAS$> lookup_alphas;
     pallas::base_field_type::value_type gate_theta;
     std::array<pallas::base_field_type::value_type, 8> alphas;
     std::array<pallas::base_field_type::value_type, fri_roots_num> fri_alphas;
@@ -98,6 +133,23 @@ pallas::base_field_type::value_type transcript(pallas::base_field_type::value_ty
 
 std::pair<pallas::base_field_type::value_type, pallas::base_field_type::value_type > transcript_challenge(pallas::base_field_type::value_type tr_state) {
     return std::make_pair(hash<hashes::poseidon>(tr_state, tr_state), hash<hashes::poseidon>(tr_state, tr_state));
+}
+
+pallas::base_field_type::value_type pow2(pallas::base_field_type::value_type x, size_t plog){
+    if(plog == 0) return pallas::base_field_type::value_type(1);
+    pallas::base_field_type::value_type result = x;
+    for(std::size_t i = 0; i < plog; i++){
+        result = result * result;
+    }
+    return result;
+}
+
+pallas::base_field_type::value_type pow(pallas::base_field_type::value_type x, size_t p){
+    pallas::base_field_type::value_type result = x;
+    for(std::size_t i = 1; i < p; i++){
+        result = result * x;
+    }
+    return result;
 }
 
 std::array<pallas::base_field_type::value_type, singles_amount> fill_singles(
@@ -126,11 +178,19 @@ placeholder_challenges_type generate_challenges(
     tr_state = transcript(tr_state, proof.commitments[0]);
 
     std::tie(tr_state, challenges.perm_beta) = transcript_challenge(tr_state);
+
     std::tie(tr_state, challenges.perm_gamma) = transcript_challenge(tr_state);
 
     // Call lookup argument
     if( use_lookups ){
-        __builtin_assigner_exit_check(false);
+        std::tie(tr_state, challenges.lookup_theta) = transcript_challenge(tr_state);
+        tr_state = transcript(tr_state, proof.commitments[3]);
+        std::tie(tr_state, challenges.lookup_beta) = transcript_challenge(tr_state);
+        std::tie(tr_state, challenges.lookup_gamma) = transcript_challenge(tr_state);
+
+        for(std::size_t i = 0; i < sorted_columns-1; i++){
+            std::tie(tr_state, challenges.lookup_alphas[i]) = transcript_challenge(tr_state);
+        }
     }
 
     // Call gate argument
@@ -145,9 +205,9 @@ placeholder_challenges_type generate_challenges(
     std::tie(tr_state, challenges.xi) = transcript_challenge(tr_state);
 
     tr_state = transcript(tr_state, vk[1]);
-    tr_state = transcript(tr_state, proof.commitments[0]);
-    tr_state = transcript(tr_state, proof.commitments[1]);
-    tr_state = transcript(tr_state, proof.commitments[2]);
+    for(std::size_t i = 0; i < proof.commitments.size(); i++){
+        tr_state = transcript(tr_state, proof.commitments[i]);
+    }
 
     std::tie(tr_state, challenges.lpc_theta) = transcript_challenge(tr_state);
 
@@ -161,23 +221,6 @@ placeholder_challenges_type generate_challenges(
     }
 
     return challenges;
-}
-
-pallas::base_field_type::value_type pow2(pallas::base_field_type::value_type x, size_t plog){
-    if(plog == 0) return pallas::base_field_type::value_type(1);
-    pallas::base_field_type::value_type result = x;
-    for(std::size_t i = 0; i < plog; i++){
-        result = result * result;
-    }
-    return result;
-}
-
-pallas::base_field_type::value_type pow(pallas::base_field_type::value_type x, size_t p){
-    pallas::base_field_type::value_type result = x;
-    for(std::size_t i = 1; i < p; i++){
-        result = result * x;
-    }
-    return result;
 }
 
 std::pair<pallas::base_field_type::value_type, pallas::base_field_type::value_type> xi_polys(
@@ -195,6 +238,15 @@ $CONSTRAINTS_BODY$
 
     return constraints;
 }
+
+#ifdef __USE_LOOKUPS__
+std::array<pallas::base_field_type::value_type, lookup_expressions_amount> calculate_lookup_expressions(std::array<pallas::base_field_type::value_type, points_num> z){
+    std::array<pallas::base_field_type::value_type, lookup_expressions_amount> expressions;
+$LOOKUP_EXPRESSIONS_BODY$
+
+    return expressions;
+}
+#endif
 
 typename pallas::base_field_type::value_type
     gate_argument_verifier(
@@ -325,6 +377,16 @@ constexpr std::size_t Z_AT_XI_IND = 1;
 constexpr std::size_t F_CONSOLIDATED_IND = 2;
 constexpr std::size_t T_CONSOLIDATED_IND = 3;
 
+typedef __attribute__((ext_vector_type(2)))
+                typename pallas::base_field_type::value_type pair_type;
+
+typedef __attribute__((ext_vector_type(4)))
+                typename pallas::base_field_type::value_type lookup_output_type;
+
+typedef __attribute__((ext_vector_type(2)))
+                typename pallas::base_field_type::value_type pair_type;
+
+
 [[circuit]] bool placeholder_verifier(
     std::array<pallas::base_field_type::value_type, 2> vk,
     placeholder_proof_type proof
@@ -364,15 +426,127 @@ constexpr std::size_t T_CONSOLIDATED_IND = 3;
     F[0] = permutation_argument[0];
     F[1] = permutation_argument[1];
     F[2] = permutation_argument[2];
+
+//    __builtin_assigner_exit_check(F[0] == pallas::base_field_type::value_type(0x2e55b062d92d4a6c8dc3e2db4f1e7e5f17605c7c45172c614cde1f97f69b2fc4_cppui255));
+//    __builtin_assigner_exit_check(F[1] == pallas::base_field_type::value_type(0x18b0640a55f9108406cd93ee729c37150b635e94911bd0d6b99876e36dc47c6e_cppui255));
+//    __builtin_assigner_exit_check(F[2] == pallas::base_field_type::value_type(0x1e713451797d9acbc945c8761b1e16d9f155a13f8ddfcab1e0322f2864d277e7_cppui255));
+#ifdef __USE_LOOKUPS__
     {
+        std::array<typename pallas::base_field_type::value_type, input_size_alphas> alphas = challenges.lookup_alphas;
+        std::array<typename pallas::base_field_type::value_type, input_size_lookup_gate_selectors> lookup_gate_selectors;
+$LOOKUP_GATE_SELECTORS_LIST$
+        std::array<typename pallas::base_field_type::value_type, input_size_lookup_gate_constraints_table_ids> lookup_gate_constraints_table_ids = {$LOOKUP_CONSTRAINT_TABLE_IDS_LIST$};
+        std::array<typename pallas::base_field_type::value_type, input_size_lookup_gate_constraints_lookup_inputs> lookup_gate_constraints_lookup_inputs = calculate_lookup_expressions(proof.z);
+        std::array<typename pallas::base_field_type::value_type, input_size_lookup_table_selectors> lookup_table_selectors;
+$LOOKUP_TABLE_SELECTORS_LIST$
+        std::array<typename pallas::base_field_type::value_type, input_size_shifted_lookup_table_selectors> shifted_lookup_table_selectors;
+$LOOKUP_SHIFTED_TABLE_SELECTORS_LIST$
+        std::array<typename pallas::base_field_type::value_type, input_size_lookup_table_lookup_options> lookup_table_lookup_options;
+$LOOKUP_OPTIONS_LIST$
+        std::array<typename pallas::base_field_type::value_type, input_size_shifted_lookup_table_lookup_options> shifted_lookup_table_lookup_options;
+$LOOKUP_SHIFTED_OPTIONS_LIST$
+
+        std::array<typename pallas::base_field_type::value_type, input_size_sorted> sorted;
+        for(std::size_t i = 0; i < input_size_sorted; i++){
+            sorted[i] = proof.z[lookup_sorted_polys_start + i];
+        }
+
+        typename pallas::base_field_type::value_type theta = challenges.lookup_theta;
+        typename pallas::base_field_type::value_type beta = challenges.lookup_beta;
+        typename pallas::base_field_type::value_type gamma = challenges.lookup_gamma;
+        typename pallas::base_field_type::value_type L0 = different_values[L0_IND];
+        pair_type V_L_values = {
+            proof.z[4*permutation_size + 6 + table_values_num + 2],     // V
+            proof.z[4*permutation_size + 6 + table_values_num + 3], // V_shifted
+        };
+        pair_type q_last = {proof.z[4*permutation_size], proof.z[4*permutation_size + 1]};
+        pair_type q_blind = {proof.z[4*permutation_size + 3], proof.z[4*permutation_size + 4]};
+
+        lookup_output_type lookup_argument;
+
+        std::array<pallas::base_field_type::value_type, lookup_constraints_amount> lookup_input;
+        std::size_t cur = 0;
+        std::size_t cur_e = 0;
+        for(std::size_t g = 0; g < lookup_gate_amount; g++){
+            for( std::size_t i = 0; i < lookup_constraints_amount_list[g]; i++ ){
+                lookup_input[cur] = lookup_gate_selectors[g] * lookup_gate_constraints_table_ids[cur];
+                pallas::base_field_type::value_type theta_acc = theta;
+                for(std::size_t e = 0; e < lookup_expressions_amount_list[cur]; e++){
+                    lookup_input[cur] = lookup_input[cur] + lookup_gate_selectors[g] * lookup_gate_constraints_lookup_inputs[cur_e] * theta_acc;
+                    theta_acc = theta_acc * theta;
+                    cur_e++;
+                }
+                cur++;
+            }
+        }
+//        __builtin_assigner_exit_check(lookup_input[0] == pallas::base_field_type::value_type(0x1aa82621e31569c641ba6f28fe3f6627451d7f732d44f60aa42b54e7082492e4_cppui255));
+
+        std::array<pallas::base_field_type::value_type, lookup_options_amount> lookup_value;
+        std::array<pallas::base_field_type::value_type, lookup_options_amount> lookup_shifted_value;
+        cur = 0;
+        std::size_t cur_o = 0;
+        pallas::base_field_type::value_type tab_id = 1;
+        for( std::size_t t = 0; t < lookup_table_amount; t++ ){
+            for( std::size_t o = 0; o < lookup_options_amount_list[t]; o++ ){
+                pallas::base_field_type::value_type theta_acc = theta;
+                lookup_value[cur] = lookup_table_selectors[t] * tab_id;
+                lookup_shifted_value[cur] = shifted_lookup_table_selectors[t] * tab_id;
+                for( std::size_t c = 0; c < lookup_tables_columns_amount_list[t]; c++){
+                    lookup_value[cur] = lookup_value[cur] + lookup_table_selectors[t] * lookup_table_lookup_options[cur_o] * theta_acc;
+                    lookup_shifted_value[cur] = lookup_shifted_value[cur] + shifted_lookup_table_selectors[t] * shifted_lookup_table_lookup_options[cur_o] * theta_acc;
+                    theta_acc = theta_acc * theta;
+                    cur_o++;
+                }
+                lookup_value[cur] = lookup_value[cur] * (pallas::base_field_type::value_type(1) - q_last[0] - q_blind[0]);
+                lookup_shifted_value[cur] = lookup_shifted_value[cur] * (pallas::base_field_type::value_type(1) - q_last[1] - q_blind[1]);
+                cur++;
+            }
+            tab_id = tab_id + 1;
+        }
+//        __builtin_assigner_exit_check(lookup_value[0] == pallas::base_field_type::value_type(0xf234cfcab58674083e8cbae1c506257b1dfb80565d2f92cdd25c6d49c8ba645_cppui255));
+//        __builtin_assigner_exit_check(lookup_shifted_value[0] == pallas::base_field_type::value_type(0xf6bffe3aee5719650e94ee11a07ea9b6f00948035ee8d85dcc7f463d307680d_cppui255));
+
+        pallas::base_field_type::value_type g = pallas::base_field_type::value_type(1);
+        pallas::base_field_type::value_type h = pallas::base_field_type::value_type(1);
+
+        for( std::size_t i = 0; i < lookup_constraints_amount; i++ ){
+            g = g *(pallas::base_field_type::value_type(1)+beta)*(gamma + lookup_input[i]);
+        }
+        for( std::size_t i = 0; i < lookup_options_amount; i++ ){
+            g = g * ((pallas::base_field_type::value_type(1)+beta) * gamma + lookup_value[i] + beta * lookup_shifted_value[i]);
+        }
+        for( std::size_t i = 0; i < m_parameter; i++ ){
+            h = h * ((pallas::base_field_type::value_type(1)+beta) * gamma + sorted[3*i] + beta * sorted[3*i+1]);
+        }
+
+        lookup_argument[0] = (pallas::base_field_type::value_type(1) - V_L_values[0]) * L0;
+        lookup_argument[1] = q_last[0]*(V_L_values[0] * V_L_values[0] - V_L_values[0]);
+        lookup_argument[2] = (pallas::base_field_type::value_type(1) - q_last[0] - q_blind[0]) * (V_L_values[1] * h - V_L_values[0] * g);
+        lookup_argument[3] = pallas::base_field_type::value_type(0);
+        for(std::size_t i = 0; i < input_size_alphas; i++){
+            lookup_argument[3] =  lookup_argument[3] + alphas[i] * (sorted[3*i + 3] - sorted[3*i + 2]);
+        }
+        lookup_argument[3] = lookup_argument[3] * L0;
+        F[3] = lookup_argument[0];
+        F[4] = lookup_argument[1];
+        F[5] = lookup_argument[2];
+        F[6] = lookup_argument[3];
+
+//        __builtin_assigner_exit_check(lookup_argument[0] == pallas::base_field_type::value_type(0x32316bb4934b484db873f07349a1511e7ab0f3d5ca6b885b23f91e6ae2d54e07_cppui255));
+//        __builtin_assigner_exit_check(lookup_argument[1] == pallas::base_field_type::value_type(0xcd144b03d41c41d4dd5f99f36bfb1ce99dbfc6bfb746432694a51ba70127150_cppui255));
+//        __builtin_assigner_exit_check(lookup_argument[2] == pallas::base_field_type::value_type(0x1a0d3153999a51bc42927a3a7110558a0a714f6aec73423905b765d2c8cb4203_cppui255));
+//        __builtin_assigner_exit_check(lookup_argument[3] == pallas::base_field_type::value_type(0x1f2eae076e4be8db89ac04a0a9e00de05b0b737ac1a4974a5337f35e57cd26d5_cppui255));
+    }
+#endif
+
+    if constexpr( gates_amount > 0) {
         std::array<pallas::base_field_type::value_type, constraints_amount> constraints;
         std::array<pallas::base_field_type::value_type, gates_amount> selectors;
         constraints = calculate_constraints(proof.z);
 
         for( std::size_t i = 0; i < gates_amount; i++ ){
-            selectors[i] = proof.z[4 * permutation_size + 6 + zero_indices[i + witness_amount+public_input_amount + constant_amount]];
+            selectors[i] = proof.z[4 * permutation_size + 6 + zero_indices[witness_amount + public_input_amount + constant_amount + gates_selector_indices[i]]];
         }
-
 
         F[7] = gate_argument_verifier(
             selectors,
@@ -395,7 +569,6 @@ constexpr std::size_t T_CONSOLIDATED_IND = 3;
         factor *= (different_values[Z_AT_XI_IND] + pallas::base_field_type::value_type(1));
     }
     __builtin_assigner_exit_check(different_values[F_CONSOLIDATED_IND] == different_values[T_CONSOLIDATED_IND] * (different_values[Z_AT_XI_IND]));
-
 
     // Commitment scheme
     std::array<pallas::base_field_type::value_type, singles_amount> singles = fill_singles(challenges.xi, challenges.fri_etha);
@@ -425,7 +598,7 @@ $PREPARE_U_AND_V$
     std::size_t round_proof_ind = 0;
     std::size_t initial_proof_ind = 0;
     pallas::base_field_type::value_type interpolant;
-    for(std::size_t i = 0; i < lambda; i++){
+    for(std::size_t i = 0; i < 1; i++){
         __builtin_assigner_fri_cosets(res.data(), D0_log, D0_omega, 256, challenges.fri_x_indices[i]);
 
         std::array<pallas::base_field_type::value_type, 2> y = {0,0};

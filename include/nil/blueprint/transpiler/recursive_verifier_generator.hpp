@@ -139,6 +139,71 @@ namespace nil {
                 return "unsupported commitment scheme type";
             }
 
+            static inline std::string generate_lookup_options_amount_list(
+                const constraint_system_type &constraint_system
+            ) {
+                std::string result;
+                for(std::size_t i = 0; i < constraint_system.lookup_tables().size(); i++){
+                    if( i != 0 ) result += ", ";
+                    result += to_string(constraint_system.lookup_tables()[i].lookup_options.size());
+                }
+                return result;
+            }
+
+            static inline std::string generate_lookup_columns_amount_list(
+                const constraint_system_type &constraint_system
+            ) {
+                std::string result;
+                for(std::size_t i = 0; i < constraint_system.lookup_tables().size(); i++){
+                    if( i != 0 ) result += ", ";
+                    result += to_string(constraint_system.lookup_tables()[i].lookup_options[0].size());
+                }
+                return result;
+            }
+
+            static inline std::string generate_lookup_constraints_amount_list(
+                const constraint_system_type &constraint_system
+            ) {
+                std::string result;
+                for(std::size_t i = 0; i < constraint_system.lookup_gates().size(); i++){
+                    if( i != 0 ) result += ", ";
+                    result += to_string(constraint_system.lookup_gates()[i].constraints.size());
+                }
+                return result;
+            }
+
+            static inline std::string generate_lookup_constraint_table_ids_list(
+                const constraint_system_type &constraint_system
+            ){
+                std::string result;
+                for(std::size_t i = 0; i < constraint_system.lookup_gates().size(); i++){
+                    for(std::size_t j = 0; j < constraint_system.lookup_gates()[i].constraints.size(); j++){
+                        if( i != 0 || j!=0 ) result += ", ";
+                        result += to_string(constraint_system.lookup_gates()[i].constraints[j].table_id);
+                    }
+                }
+                return result;
+            }
+
+            static inline std::string generate_lookup_expressions_amount_list(
+                const constraint_system_type &constraint_system
+            ) {
+                std::string result;
+                for(std::size_t i = 0; i < constraint_system.lookup_gates().size(); i++){
+                    for(std::size_t j = 0; j < constraint_system.lookup_gates()[i].constraints.size(); j++){
+                        if( i != 0 || j != 0) result += ", ";
+                        result += to_string(constraint_system.lookup_gates()[i].constraints[j].lookup_input.size());
+                    }
+                }
+                return result;
+            }
+
+            static inline std::string generate_lookup_expressions_computation(
+                const constraint_system_type &constraint_system
+            ){
+                return "";
+            }
+
             template<typename CommitmentSchemeType>
             static inline std::string generate_eval_proof(typename CommitmentSchemeType::proof_type eval_proof) {
                 if constexpr(std::is_same<
@@ -320,7 +385,15 @@ namespace nil {
                 ) << "," << std::endl;
                 out << "\t\t\t" << generate_commitment<typename PlaceholderParams::commitment_scheme_type>(
                     proof.commitments.at(nil::crypto3::zk::snark::QUOTIENT_BATCH)
-                ) << std::endl;
+                );
+
+                if( proof.commitments.find(nil::crypto3::zk::snark::LOOKUP_BATCH) != proof.commitments.end() ){
+                    out << "," << std::endl << "\t\t\t" << generate_commitment<typename PlaceholderParams::commitment_scheme_type>(
+                        proof.commitments.at(nil::crypto3::zk::snark::LOOKUP_BATCH)
+                    );
+                }
+                out << std::endl;
+
                 out << "\t\t]}," << std::endl;
                 out << "\t\t{\"field\": \"" << proof.eval_proof.challenge << "\"}," << std::endl;
                 out << generate_eval_proof<typename PlaceholderParams::commitment_scheme_type>(
@@ -552,7 +625,7 @@ namespace nil {
                     for( std::size_t i = 0; i < sorted_size; i++ ){
                         points.push_back(rot_string(0) + "& " + rot_string(1) + "& " + rot_string(common_data.usable_rows_amount) + "& ");
                     }
-                    singles[rot_string(common_data.usable_rows_amount)], singles.size();
+                    singles[rot_string(common_data.usable_rows_amount)] = singles.size();
                 }
 
                 for(std::size_t i = 0; i < points.size(); i++){
@@ -560,6 +633,7 @@ namespace nil {
                     bool found = false;
                     for(const auto &unique_point:unique_points){
                         if(points[i] == unique_point){
+                            std::cout << "Point " << i << "=>" << unique_point << " => " << j << std::endl;
                             found = true;
                             points_ids.push_back(j);
                             break;
@@ -592,6 +666,7 @@ namespace nil {
                     std::cout << "Permutation_size = " << permutation_size << std::endl;
                     std::string result = nil::blueprint::recursive_verifier_template;
                     bool use_lookups = constraint_system.lookup_gates().size() > 0;
+                    std::cout << "Use lookups = " << use_lookups << std::endl;
                     transpiler_replacements reps;
 
                     auto fri_params = commitment_scheme.get_fri_params();
@@ -604,14 +679,47 @@ namespace nil {
                         round_proof_layers_num += log2(fri_params.D[i]->m) -1;
                     }
 
+
+                    std::size_t lookup_degree = 0;
+                    nil::crypto3::math::expression_max_degree_visitor<variable_type> degree_visitor;
+                    if(use_lookups){
+                        for(std::size_t i = 0; i < constraint_system.lookup_gates().size(); i++){
+                            for(std::size_t j = 0; j < constraint_system.lookup_gates()[i].constraints.size(); j++){
+                                std::size_t degree = 0;
+                                for(std::size_t k = 0; k < constraint_system.lookup_gates()[i].constraints[j].lookup_input.size(); k++){
+                                    degree = std::max(degree, std::size_t(degree_visitor.compute_max_degree(constraint_system.lookup_gates()[i].constraints[j].lookup_input[k])));
+                                }
+                                std::cout << "Max_degree = " << degree << std::endl;
+                                lookup_degree += (degree + 1);
+                            }
+                        }
+                        for(std::size_t i = 0; i < constraint_system.lookup_tables().size(); i++){
+                            lookup_degree += 3 * constraint_system.lookup_tables()[i].lookup_options.size();
+                        }
+                    }
+                    std::cout << "Lookup degree = " << lookup_degree << std::endl;
+
                     std::size_t rows_amount = common_data.rows_amount;
-                    std::size_t quotient_degree = (permutation_size + 1)* (common_data.rows_amount -1 );
+                    std::size_t quotient_degree = std::max(
+                        (permutation_size + 1) * (common_data.rows_amount -1 ),
+                        (lookup_degree + 1) * (common_data.rows_amount -1 )
+                    );
+
+                    std::cout << "Permutation side = " << (permutation_size + 1) * (common_data.rows_amount -1 ) << std::endl;
+                    std::cout << "Lookup side = " << (lookup_degree + 1) * (common_data.rows_amount -1 ) << std::endl;
                     std::cout << "Quotient degree = " << quotient_degree - 1 << std::endl;
                     std::size_t quotient_polys = (quotient_degree % rows_amount != 0)? (quotient_degree / rows_amount + 1): (quotient_degree / rows_amount);
                     std::cout << "Quotient polys = " << quotient_polys << std::endl;
 
-                    std::size_t poly_num = 2 * permutation_size + 2 + (use_lookups?2:1) + arithmetization_params::total_columns
+                    std::size_t poly_num = 2 * permutation_size + 2 + (use_lookups?2:1)
+                        + arithmetization_params::total_columns
                         + constraint_system.sorted_lookup_columns_number() + quotient_polys;
+                    std::cout << "FIXED_VALUES_BATCH poly num = " << 2 * permutation_size + 2 + arithmetization_params::constant_columns + arithmetization_params::selector_columns << std::endl;
+                    std::cout << "VARIABLE_VALUES_BATCH poly num = " << arithmetization_params::witness_columns + arithmetization_params::public_input_columns << std::endl;
+                    std::cout << "PERMUTATION_BATCH poly num = " << (use_lookups?2:1) << std::endl;
+                    std::cout << "QUOTIENT_BATCH poly num = " << quotient_polys << std::endl;
+                    std::cout << "LOOKUP_BATCH poly num = " << constraint_system.sorted_lookup_columns_number() << std::endl;
+                    std::cout << "Poly num = " << poly_num << std::endl;
 
                     std::size_t points_num = 4 * permutation_size + 6;
                     std::size_t table_values_num = 0;
@@ -630,7 +738,11 @@ namespace nil {
                     points_num += quotient_polys;
                     std::cout << "Quotient polys points num = " << points_num << std::endl;
 
-                    if( use_lookups ) points_num += constraint_system.sorted_lookup_columns_number() * 3;
+                    if( use_lookups ) {
+                        points_num += constraint_system.sorted_lookup_columns_number() * 3;
+                        std::cout << "Lookup polys points num = " << points_num << std::endl;
+                    }
+
 
                     std::size_t constraints_amount = 0;
                     std::string gates_sizes = "";
@@ -645,16 +757,81 @@ namespace nil {
                         gates_sizes += to_string(constraint_system.gates()[i].constraints.size());
                         for(std::size_t j = 0; j < constraint_system.gates()[i].constraints.size(); j++, cur++){
                             constraints_body << "\tconstraints[" << cur << "] = " << visitor.generate_expression(constraint_system.gates()[i].constraints[j]) << ";" << std::endl;
-                            std::cout << visitor.generate_expression(constraint_system.gates()[i].constraints[j]) << std::endl;
-                            std::cout << constraint_system.gates()[i].constraints[j] << std::endl;
                         }
+                    }
+
+                    std::stringstream lookup_expressions_body;
+                    cur = 0;
+                    for(const auto &lookup_gate: constraint_system.lookup_gates()){
+                        for(const auto &lookup_constraint: lookup_gate.constraints){
+                            for( const auto &expr: lookup_constraint.lookup_input){
+                                lookup_expressions_body << "\texpressions[" << cur << "] = " << visitor.generate_expression(expr) << ";" << std::endl;
+                                cur++;
+                            }
+                        }
+                    }
+
+                    std::stringstream lookup_gate_selectors_list;
+                    cur = 0;
+                    for(const auto &lookup_gate: constraint_system.lookup_gates()){
+                        variable_type var(lookup_gate.tag_index, 0, true, variable_type::column_type::selector);
+                        lookup_gate_selectors_list << "\t\tlookup_gate_selectors[" << cur << "] = proof.z[" << verifier_indices[var] <<"];" << std::endl;
+                        cur++;
+                    }
+
+                    std::stringstream lookup_table_selectors_list;
+                    cur = 0;
+                    for(const auto &lookup_table: constraint_system.lookup_tables()){
+                        variable_type var(lookup_table.tag_index, 0, true, variable_type::column_type::selector);
+                        lookup_table_selectors_list << "\t\tlookup_table_selectors[" << cur << "] = proof.z[" << verifier_indices[var] <<"];" << std::endl;
+                        cur++;
+                    }
+
+                    std::stringstream lookup_shifted_table_selectors_list;
+                    cur = 0;
+                    for(const auto &lookup_table: constraint_system.lookup_tables()){
+                        variable_type var(lookup_table.tag_index, 1, true, variable_type::column_type::selector);
+                        lookup_shifted_table_selectors_list << "\t\tshifted_lookup_table_selectors[" << cur << "] = proof.z[" << verifier_indices[var] <<"];" << std::endl;
+                        cur++;
+                    }
+
+                    std::stringstream lookup_options_list;
+                    cur = 0;
+                    for(const auto &lookup_table: constraint_system.lookup_tables()){
+                        for(const auto &lookup_option: lookup_table.lookup_options){
+                            for( const auto &column: lookup_option){
+                                variable_type var(column.index, 0, true, variable_type::column_type::constant);
+                                lookup_options_list << "\t\tlookup_table_lookup_options[" << cur << "] = proof.z[" << verifier_indices[var] <<"];" << std::endl;
+                                cur++;
+                            }
+                        }
+                    }
+
+                    std::stringstream lookup_shifted_options_list;
+                    cur = 0;
+                    for(const auto &lookup_table: constraint_system.lookup_tables()){
+                        for(const auto &lookup_option: lookup_table.lookup_options){
+                            for( const auto &column: lookup_option){
+                                variable_type var(column.index, 1, true, variable_type::column_type::constant);
+                                lookup_shifted_options_list << "\t\tshifted_lookup_table_lookup_options[" << cur << "] = proof.z[" << verifier_indices[var] <<"];" << std::endl;
+                                cur++;
+                            }
+                        }
+                    }
+
+                    std::stringstream gates_selectors_indices;
+                    cur = 0;
+                    for(const auto &gate: constraint_system.gates()){
+                        if(cur != 0) gates_selectors_indices << ", ";
+                        gates_selectors_indices << gate.selector_index;
+                        cur++;
                     }
 
                     std::vector<std::vector<std::string>> unique_points;
                     std::vector<std::size_t> point_ids;
                     std::map<std::string, std::size_t> singles;
                     std::tie(unique_points, point_ids, singles) = calculate_unique_points(
-                        common_data, permutation_size, use_lookups, quotient_polys, 0
+                        common_data, permutation_size, use_lookups, quotient_polys, use_lookups?constraint_system.sorted_lookup_columns_number():0
                     );
 
                     std::string point_inds_str = "";
@@ -695,6 +872,8 @@ namespace nil {
                     }
 
 
+                    reps["$USE_LOOKUPS_DEFINE$"] = use_lookups?"#define __USE_LOOKUPS__ 1\n":"";
+                    reps["$USE_LOOKUPS$"] = use_lookups? "true" : "false";
                     reps["$BATCHES_NUM$"] = to_string(batches_num);
                     reps["$COMMITMENTS_NUM$"] = to_string(batches_num - 1);
                     reps["$POINTS_NUM$"] = to_string(points_num);
@@ -718,6 +897,7 @@ namespace nil {
                     reps["$GATES_AMOUNT$"] = to_string(constraint_system.gates().size());
                     reps["$CONSTRAINTS_AMOUNT$"] = to_string(constraints_amount);
                     reps["$GATES_SIZES$"] = gates_sizes;
+                    reps["$GATES_SELECTOR_INDICES$"] = gates_selectors_indices.str();
                     reps["$CONSTRAINTS_BODY$"] = constraints_body.str();
                     reps["$WITNESS_COLUMNS_AMOUNT$"] = to_string(arithmetization_params::witness_columns);
                     reps["$PUBLIC_INPUT_COLUMNS_AMOUNT$"] = to_string(arithmetization_params::public_input_columns);
@@ -736,6 +916,26 @@ namespace nil {
                     reps["$SINGLES_AMOUNT$"] = to_string(singles.size());
                     reps["$SINGLES_COMPUTATION$"] = singles_str;
                     reps["$PREPARE_U_AND_V$"] = prepare_U_V_str.str();
+                    reps["$SORTED_COLUMNS$"] = to_string(constraint_system.sorted_lookup_columns_number());
+                    reps["$SORTED_ALPHAS$"] = to_string(use_lookups? constraint_system.sorted_lookup_columns_number() - 1: 1);
+                    reps["$LOOKUP_TABLE_AMOUNT$"] = to_string(constraint_system.lookup_tables().size());
+                    reps["$LOOKUP_GATE_AMOUNT$"] = to_string(constraint_system.lookup_gates().size());
+                    reps["$LOOKUP_OPTIONS_AMOUNT$"] = to_string(constraint_system.lookup_options_num());
+                    reps["$LOOKUP_OPTIONS_AMOUNT_LIST$"] = generate_lookup_options_amount_list(constraint_system);
+                    reps["$LOOKUP_CONSTRAINTS_AMOUNT$"] = to_string(constraint_system.lookup_constraints_num());
+                    reps["$LOOKUP_CONSTRAINTS_AMOUNT_LIST$"] = generate_lookup_constraints_amount_list(constraint_system);
+                    reps["$LOOKUP_EXPRESSIONS_AMOUNT$"] = to_string(constraint_system.lookup_expressions_num());
+                    reps["$LOOKUP_EXPRESSIONS_AMOUNT_LIST$"] = generate_lookup_expressions_amount_list(constraint_system);
+                    reps["$LOOKUP_TABLES_COLUMNS_AMOUNT$"] = to_string(constraint_system.lookup_tables_columns_num());
+                    reps["$LOOKUP_TABLES_COLUMNS_AMOUNT_LIST$"] = generate_lookup_columns_amount_list(constraint_system);
+                    reps["$LOOKUP_EXPRESSIONS_BODY$"] = lookup_expressions_body.str();
+                    reps["$LOOKUP_CONSTRAINT_TABLE_IDS_LIST$"] = generate_lookup_constraint_table_ids_list(constraint_system);
+                    reps["$LOOKUP_GATE_SELECTORS_LIST$"] = lookup_gate_selectors_list.str();
+                    reps["$LOOKUP_TABLE_SELECTORS_LIST$"] = lookup_table_selectors_list.str();
+                    reps["$LOOKUP_SHIFTED_TABLE_SELECTORS_LIST$"] = lookup_shifted_table_selectors_list.str();
+                    reps["$LOOKUP_OPTIONS_LIST$"] = lookup_options_list.str();
+                    reps["$LOOKUP_SHIFTED_OPTIONS_LIST$"] = lookup_shifted_options_list.str();
+                    reps["$LOOKUP_SORTED_START$"] = to_string(4*permutation_size + 6 + table_values_num + (use_lookups?4:2) + quotient_polys);
 
                     result = replace_all(result, reps);
                     return result;
