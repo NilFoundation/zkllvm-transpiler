@@ -56,6 +56,7 @@ const std::array<int, gates_amount> gates_sizes = {$GATES_SIZES$};
 const size_t unique_points = $UNIQUE_POINTS$;
 const std::array<int, poly_num> point_ids = {$POINTS_IDS$};
 const size_t singles_amount = $SINGLES_AMOUNT$;
+std::array<std::size_t, batches_num> batches_amount_list = {$BATCHES_AMOUNT_LIST$};
 
 #ifdef __USE_LOOKUPS__
 const size_t lookup_table_amount = $LOOKUP_TABLE_AMOUNT$;
@@ -127,12 +128,30 @@ struct placeholder_permutation_argument_input_type{
     permutation_argument_thetas_type thetas;
 };
 
-pallas::base_field_type::value_type transcript(pallas::base_field_type::value_type tr_state, pallas::base_field_type::value_type value) {
-    return hash<hashes::poseidon>(value, hash<hashes::poseidon>(tr_state, tr_state));
+struct transcript_state_type{
+    std::array <pallas::base_field_type::value_type, 3> state;
+    std::size_t cur;
+};
+
+void transcript(transcript_state_type &tr_state, pallas::base_field_type::value_type value) {
+    tr_state.state[tr_state.cur] = value;
+    if(tr_state.cur == 2){
+        tr_state.state[0] = __builtin_assigner_poseidon_pallas_base({tr_state.state[0],tr_state.state[1],tr_state.state[2]})[2];
+        tr_state.state[1] = pallas::base_field_type::value_type(0);
+        tr_state.state[2] = pallas::base_field_type::value_type(0);
+        tr_state.cur = 1;
+    } else{
+        tr_state.state[tr_state.cur] = value;
+        tr_state.cur++;
+    }
 }
 
-std::pair<pallas::base_field_type::value_type, pallas::base_field_type::value_type > transcript_challenge(pallas::base_field_type::value_type tr_state) {
-    return std::make_pair(hash<hashes::poseidon>(tr_state, tr_state), hash<hashes::poseidon>(tr_state, tr_state));
+pallas::base_field_type::value_type transcript_challenge(transcript_state_type &tr_state) {
+    tr_state.state[0] = __builtin_assigner_poseidon_pallas_base({tr_state.state[0], tr_state.state[1], tr_state.state[2]})[2];
+    tr_state.state[1] = pallas::base_field_type::value_type(0);
+    tr_state.state[2] = pallas::base_field_type::value_type(0);
+    tr_state.cur = 1;
+    return tr_state.state[0];
 }
 
 pallas::base_field_type::value_type pow2(pallas::base_field_type::value_type x, size_t plog){
@@ -167,57 +186,60 @@ placeholder_challenges_type generate_challenges(
 ){
     placeholder_challenges_type challenges;
 
-    pallas::base_field_type::value_type tr_state(0x2fadbe2852044d028597455bc2abbd1bc873af205dfabb8a304600f3e09eeba8_cppui255);
+    transcript_state_type tr_state;
+    tr_state.state[0] = pallas::base_field_type::value_type(0);
+    tr_state.state[1] = pallas::base_field_type::value_type(0);
+    tr_state.state[2] = pallas::base_field_type::value_type(0);
+    tr_state.cur = 1;
 
-    tr_state = transcript(tr_state, vk[0]);
-    tr_state = transcript(tr_state, vk[1]);
+    transcript(tr_state, vk[0]);
+    transcript(tr_state, vk[1]);
 
     // LPC additional point
-    std::tie(tr_state, challenges.fri_etha) = transcript_challenge(tr_state);
+    challenges.fri_etha = transcript_challenge(tr_state);
 
-    tr_state = transcript(tr_state, proof.commitments[0]);
+    transcript(tr_state, proof.commitments[0]);
 
-    std::tie(tr_state, challenges.perm_beta) = transcript_challenge(tr_state);
-
-    std::tie(tr_state, challenges.perm_gamma) = transcript_challenge(tr_state);
+    challenges.perm_beta = transcript_challenge(tr_state);
+    challenges.perm_gamma = transcript_challenge(tr_state);
 
     // Call lookup argument
     if( use_lookups ){
-        std::tie(tr_state, challenges.lookup_theta) = transcript_challenge(tr_state);
-        tr_state = transcript(tr_state, proof.commitments[3]);
-        std::tie(tr_state, challenges.lookup_beta) = transcript_challenge(tr_state);
-        std::tie(tr_state, challenges.lookup_gamma) = transcript_challenge(tr_state);
+        challenges.lookup_theta = transcript_challenge(tr_state);
+        transcript(tr_state, proof.commitments[3]);
+        challenges.lookup_beta = transcript_challenge(tr_state);
+        challenges.lookup_gamma = transcript_challenge(tr_state);
 
         for(std::size_t i = 0; i < sorted_columns-1; i++){
-            std::tie(tr_state, challenges.lookup_alphas[i]) = transcript_challenge(tr_state);
+            challenges.lookup_alphas[i] = transcript_challenge(tr_state);
         }
     }
 
     // Call gate argument
-    tr_state = transcript(tr_state, proof.commitments[1]);
-    std::tie(tr_state, challenges.gate_theta) = transcript_challenge(tr_state);
+    transcript(tr_state, proof.commitments[1]);
+    challenges.gate_theta = transcript_challenge(tr_state);
 
     for(std::size_t i = 0; i < 8; i++){
-        std::tie(tr_state, challenges.alphas[i]) = transcript_challenge(tr_state);
+        challenges.alphas[i] = transcript_challenge(tr_state);
     }
-    tr_state = transcript(tr_state, proof.commitments[2]);
+    transcript(tr_state, proof.commitments[2]);
 
-    std::tie(tr_state, challenges.xi) = transcript_challenge(tr_state);
+    challenges.xi = transcript_challenge(tr_state);
 
-    tr_state = transcript(tr_state, vk[1]);
+    transcript(tr_state, vk[1]);
     for(std::size_t i = 0; i < proof.commitments.size(); i++){
-        tr_state = transcript(tr_state, proof.commitments[i]);
+        transcript(tr_state, proof.commitments[i]);
     }
 
-    std::tie(tr_state, challenges.lpc_theta) = transcript_challenge(tr_state);
+    challenges.lpc_theta = transcript_challenge(tr_state);
 
     for(std::size_t i = 0; i < fri_roots_num; i++){
-        tr_state = transcript(tr_state, proof.fri_roots[i]);
-        std::tie(tr_state, challenges.fri_alphas[i]) = transcript_challenge(tr_state);
+        transcript(tr_state, proof.fri_roots[i]);
+        challenges.fri_alphas[i] = transcript_challenge(tr_state);
     }
 
     for(std::size_t i = 0; i < lambda; i++){
-        std::tie(tr_state, challenges.fri_x_indices[i]) = transcript_challenge(tr_state);
+        challenges.fri_x_indices[i] = transcript_challenge(tr_state);
     }
 
     return challenges;
@@ -372,6 +394,34 @@ pallas::base_field_type::value_type eval3(std::array<pallas::base_field_type::va
     return result;
 }
 
+pallas::base_field_type::value_type calculate_leaf_hash(
+    std::array<pallas::base_field_type::value_type, initial_proof_points_num> val,
+    std::size_t start_index,
+    std::size_t leaf_size
+){
+    pallas::base_field_type::value_type hash_state = pallas::base_field_type::value_type(0);
+    for(std::size_t pos = 0; pos < leaf_size; pos+=2){
+        hash_state = __builtin_assigner_poseidon_pallas_base(
+            {hash_state, val[start_index + pos], val[start_index + pos+1]}
+        )[2];
+    }
+    return hash_state;
+}
+
+pallas::base_field_type::value_type calculate_reversed_leaf_hash(
+    std::array<pallas::base_field_type::value_type, initial_proof_points_num> &val,
+    std::size_t start_index,
+    std::size_t leaf_size
+){
+    pallas::base_field_type::value_type hash_state = pallas::base_field_type::value_type(0);
+    for(std::size_t pos = 0; pos < leaf_size; pos+=2){
+        hash_state = __builtin_assigner_poseidon_pallas_base(
+            {hash_state, val[start_index + pos + 1], val[start_index + pos]}
+        )[2];
+    }
+    return hash_state;
+}
+
 constexpr std::size_t L0_IND = 0;
 constexpr std::size_t Z_AT_XI_IND = 1;
 constexpr std::size_t F_CONSOLIDATED_IND = 2;
@@ -479,7 +529,6 @@ $LOOKUP_SHIFTED_OPTIONS_LIST$
                 cur++;
             }
         }
-//        __builtin_assigner_exit_check(lookup_input[0] == pallas::base_field_type::value_type(0x1aa82621e31569c641ba6f28fe3f6627451d7f732d44f60aa42b54e7082492e4_cppui255));
 
         std::array<pallas::base_field_type::value_type, lookup_options_amount> lookup_value;
         std::array<pallas::base_field_type::value_type, lookup_options_amount> lookup_shifted_value;
@@ -503,8 +552,6 @@ $LOOKUP_SHIFTED_OPTIONS_LIST$
             }
             tab_id = tab_id + 1;
         }
-//        __builtin_assigner_exit_check(lookup_value[0] == pallas::base_field_type::value_type(0xf234cfcab58674083e8cbae1c506257b1dfb80565d2f92cdd25c6d49c8ba645_cppui255));
-//        __builtin_assigner_exit_check(lookup_shifted_value[0] == pallas::base_field_type::value_type(0xf6bffe3aee5719650e94ee11a07ea9b6f00948035ee8d85dcc7f463d307680d_cppui255));
 
         pallas::base_field_type::value_type g = pallas::base_field_type::value_type(1);
         pallas::base_field_type::value_type h = pallas::base_field_type::value_type(1);
@@ -531,11 +578,6 @@ $LOOKUP_SHIFTED_OPTIONS_LIST$
         F[4] = lookup_argument[1];
         F[5] = lookup_argument[2];
         F[6] = lookup_argument[3];
-
-//        __builtin_assigner_exit_check(lookup_argument[0] == pallas::base_field_type::value_type(0x32316bb4934b484db873f07349a1511e7ab0f3d5ca6b885b23f91e6ae2d54e07_cppui255));
-//        __builtin_assigner_exit_check(lookup_argument[1] == pallas::base_field_type::value_type(0xcd144b03d41c41d4dd5f99f36bfb1ce99dbfc6bfb746432694a51ba70127150_cppui255));
-//        __builtin_assigner_exit_check(lookup_argument[2] == pallas::base_field_type::value_type(0x1a0d3153999a51bc42927a3a7110558a0a714f6aec73423905b765d2c8cb4203_cppui255));
-//        __builtin_assigner_exit_check(lookup_argument[3] == pallas::base_field_type::value_type(0x1f2eae076e4be8db89ac04a0a9e00de05b0b737ac1a4974a5337f35e57cd26d5_cppui255));
     }
 #endif
 
@@ -597,9 +639,36 @@ $PREPARE_U_AND_V$
     std::array<std::array<typename pallas::base_field_type::value_type, 3>, D0_log> res;
     std::size_t round_proof_ind = 0;
     std::size_t initial_proof_ind = 0;
+    std::size_t initial_proof_hash_ind = 0;
     pallas::base_field_type::value_type interpolant;
-    for(std::size_t i = 0; i < 1; i++){
+    std::size_t cur_val = 0;
+    std::size_t round_proof_hash_ind = 0;
+
+    for(std::size_t i = 0; i < lambda; i++){
         __builtin_assigner_fri_cosets(res.data(), D0_log, D0_omega, 256, challenges.fri_x_indices[i]);
+
+        pallas::base_field_type::value_type hash_state;
+        for(std::size_t b = 0; b < batches_num; b++){
+            pallas::base_field_type::value_type hash_state(0);
+            if(res[0][2] == pallas::base_field_type::value_type(0)){
+                hash_state = calculate_leaf_hash(proof.initial_proof_values, cur_val, batches_amount_list[b] *2);
+            } else if(res[0][2] == pallas::base_field_type::value_type(1)){
+                hash_state = calculate_reversed_leaf_hash(proof.initial_proof_values, cur_val, batches_amount_list[b] *2);
+            }
+            cur_val += batches_amount_list[b] *2;
+            for(std::size_t r = i * initial_merkle_proofs_position_num/lambda; r < (i + 1)* initial_merkle_proofs_position_num/lambda ; r++){
+                if(proof.initial_proof_positions[r] == 1){
+                    hash_state = __builtin_assigner_poseidon_pallas_base({0, hash_state, proof.initial_proof_hashes[initial_proof_hash_ind]})[2];
+                } else{
+                    hash_state = __builtin_assigner_poseidon_pallas_base({0, proof.initial_proof_hashes[initial_proof_hash_ind], hash_state})[2];
+                }
+                initial_proof_hash_ind ++;
+            }
+            if(b == 0)
+                __builtin_assigner_exit_check(hash_state == vk[1]);
+            else
+                __builtin_assigner_exit_check(hash_state == proof.commitments[b-1]);
+        }
 
         std::array<pallas::base_field_type::value_type, 2> y = {0,0};
         std::array<pallas::base_field_type::value_type, 2> combined_Q = {0,0};
@@ -627,9 +696,25 @@ $PREPARE_U_AND_V$
         }
         initial_proof_ind = ind;
 
-$COMBINED_Q_COMPUTATION$
-
+        std::size_t D = D0_log - 1;
+        pallas::base_field_type::value_type rhash;
         for(std::size_t j = 0; j < fri_rounds; j++){
+            if(res[j][2] == pallas::base_field_type::value_type(0)){
+                rhash = __builtin_assigner_poseidon_pallas_base({0, y[0], y[1]})[2];
+            } else {
+                rhash = __builtin_assigner_poseidon_pallas_base({0, y[1], y[0]})[2];
+            }
+            for( std::size_t d = 0; d < D; d++){
+                if(proof.round_merkle_proof_positions[round_proof_hash_ind] == 1){
+                    rhash = __builtin_assigner_poseidon_pallas_base({0, rhash, proof.round_proof_hashes[round_proof_hash_ind]})[2];
+                } else {
+                    rhash = __builtin_assigner_poseidon_pallas_base({0, proof.round_proof_hashes[round_proof_hash_ind], rhash})[2];
+                }
+                round_proof_hash_ind++;
+            }
+            __builtin_assigner_exit_check(rhash == proof.fri_roots[j]);
+            D--;
+
             interpolant = __builtin_assigner_fri_lin_inter(
                 res[j][0],
                 y[0],
@@ -639,6 +724,8 @@ $COMBINED_Q_COMPUTATION$
             __builtin_assigner_exit_check(interpolant == proof.round_proof_values[round_proof_ind]);
             y[0] = proof.round_proof_values[round_proof_ind];
             y[1] = proof.round_proof_values[round_proof_ind + 1];
+
+            pallas::base_field_type::value_type rhash;
             round_proof_ind += 2;
         }
 
