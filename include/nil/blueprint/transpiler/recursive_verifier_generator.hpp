@@ -512,32 +512,6 @@ namespace nil {
                 return result;
             }
 
-            static inline std::string generate_combined_Q_computation(
-                std::vector<std::vector<std::string>> unique_points,
-                std::vector<std::size_t> point_ids
-            ){
-                std::stringstream out;
-/*              out << "\t\tstd::array<std::array<pallas::base_field_type::value_type, 2>, unique_points> V_eval; "<< std::endl;
-                for(std::size_t i = 0; i < unique_points.size(); i++){
-                    out << "\t\tV_eval["<<i<<"][0] = eval4(V["<< i <<"], res[0][0]);" << std::endl;
-                    out << "\t\tV_eval["<<i<<"][1] = eval4(V["<< i <<"], res[0][1]);" << std::endl;
-                }
-                out << "\t\tcombined_Q[0] = pallas::base_field_type::value_type(0);"<< std::endl;
-                out << "\t\tcombined_Q[1] = pallas::base_field_type::value_type(0);"<< std::endl;
-               for(std::size_t i = 0; i < point_ids.size(); i++){
-                    out << "\t\tcombined_Q[0] = combined_Q[0] * challenges.lpc_theta;"<< std::endl;
-                    out << "\t\tcombined_Q[1] = combined_Q[1] * challenges.lpc_theta;"<< std::endl;
-                    if(point_ids[i] == 0){
-                        out << "\t\tcombined_Q[0] = "<<
-                            "combined_Q[0] + (proof.initial_proof_values[initial_proof_ind]);" << std::endl; //" - eval3(U["<<i << "], res[0][0]))/V_eval["<<point_ids[i]<<"][0];"<< std::endl;
-                        out << "\t\tcombined_Q[1] = "<<
-                            "combined_Q[1] + (proof.initial_proof_values[initial_proof_ind + 1]);" << std::endl;// - eval3(U["<<i << "], res[0][1]))/V_eval["<<point_ids[i]<<"][1];"<< std::endl;
-                    }
-                    out << "\t\tinitial_proof_ind = initial_proof_ind + 2; " << std::endl;
-                }*/
-               return out.str();
-            }
-
             static inline std::tuple<
                 std::vector<std::vector<std::string>>, std::vector<std::size_t>, std::map<std::string, std::size_t>
             > calculate_unique_points(
@@ -871,6 +845,12 @@ namespace nil {
                         prepare_U_V_str << "\tz_ind = z_ind + " << unique_points[point_ids[i]].size() << ";" << std::endl;
                     }
 
+                    std::size_t fixed_values_size = permutation_size * 2 + 2 + arithmetization_params::constant_columns + arithmetization_params::selector_columns;
+                    std::size_t variable_values_size = arithmetization_params::witness_columns + arithmetization_params::public_input_columns;
+                    std::string batches_size_list = to_string(fixed_values_size) + ", " + to_string(variable_values_size) + ", " +
+                        to_string(use_lookups?2:1) + ", " + to_string(quotient_polys);
+                    if(use_lookups) batches_size_list += ", " + to_string(constraint_system.sorted_lookup_columns_number());
+
 
                     reps["$USE_LOOKUPS_DEFINE$"] = use_lookups?"#define __USE_LOOKUPS__ 1\n":"";
                     reps["$USE_LOOKUPS$"] = use_lookups? "true" : "false";
@@ -912,7 +892,6 @@ namespace nil {
                     reps["$FRI_ROUNDS$"] = to_string(fri_params.r);
                     reps["$UNIQUE_POINTS$"] = to_string(unique_points.size());
                     reps["$POINTS_IDS$"] = point_inds_str;
-                    reps["$COMBINED_Q_COMPUTATION$"] = generate_combined_Q_computation(unique_points, point_ids);
                     reps["$SINGLES_AMOUNT$"] = to_string(singles.size());
                     reps["$SINGLES_COMPUTATION$"] = singles_str;
                     reps["$PREPARE_U_AND_V$"] = prepare_U_V_str.str();
@@ -936,6 +915,7 @@ namespace nil {
                     reps["$LOOKUP_OPTIONS_LIST$"] = lookup_options_list.str();
                     reps["$LOOKUP_SHIFTED_OPTIONS_LIST$"] = lookup_shifted_options_list.str();
                     reps["$LOOKUP_SORTED_START$"] = to_string(4*permutation_size + 6 + table_values_num + (use_lookups?4:2) + quotient_polys);
+                    reps["$BATCHES_AMOUNT_LIST$"] = batches_size_list;
 
                     result = replace_all(result, reps);
                     return result;

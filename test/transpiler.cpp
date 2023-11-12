@@ -192,7 +192,7 @@ BOOST_AUTO_TEST_SUITE(placeholder_circuit1)
         using arithmetization_params =
             plonk_arithmetization_params<witness_columns, public_input_columns, constant_columns, selector_columns>;
 
-        constexpr static const std::size_t lambda = 40;
+        constexpr static const std::size_t lambda = 1;
         constexpr static const std::size_t m = 2;
     };
     typedef placeholder_circuit_params<field_type, typename placeholder_test_params::arithmetization_params> circuit_params;
