@@ -164,23 +164,17 @@ pallas::base_field_type::value_type pow2(pallas::base_field_type::value_type x, 
 }
 
 pallas::base_field_type::value_type pow(pallas::base_field_type::value_type x, size_t p){
-	if(p == 0) return 1;
     pallas::base_field_type::value_type result = 1;
-    for(std::size_t i = 1; i < p; i++){
-        result = result * x;
-    }
-
-    std::array<typename pallas::base_field_type::value_type, 64> decomp;
-    __builtin_assigner_bit_decomposition(decomp.data(), 64, p, true);
-    pallas::base_field_type::value_type result1 = 1;
-    for(std::size_t i = 0; i < 64; i++){
-        result1 = result1 * result1;
-        if(decomp[64-i] == 1){
-            result = result1 * x;
-        }
-    }
-
-    //__builtin_assigner_exit_check(result == result1);
+	std::size_t mask = 1;
+	while(mask < p){mask = mask * 2;}
+ 	while(mask > 0){
+        mask = mask / 2;
+		result = result * result;
+		if( p >= mask ){
+			result = result * x;
+			p = p - mask;
+		}
+	}
     return result;
 }
 
