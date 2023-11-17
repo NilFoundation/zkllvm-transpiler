@@ -606,11 +606,11 @@ namespace nil {
                 //---------------------------------------------------------------------------//
                 // Test circuit 5 (with two public columns)
                 //
-                // rows_log = 4, k = 16 (total_rows),
+                // rows_log = 4, k = 16-3 (total_rows),
                 //
                 //  i  | GATE | w_0 | w_1 | w_2 | public | public | q_add | q_mul |
                 //  0  |  --  |  x  |  y  |  z  |   p1   |   0    |   0   |   0   |
-                //  1  |  --  |  x  |  y  |  z  |   0    |   p2   |   0   |   0   |
+                //  1  | ADD  |  x  |  y  |  z  |   0    |   p2   |   1   |   0   |
                 //  2  | ADD  |  x  |  y  |  z  |   0    |   0    |   1   |   0   |
                 // ... | ADD  |  x  |  y  |  z  |   0    |   0    |   1   |   0   |
                 // k-3 | ADD  |  x  |  y  |  z  |   0    |   0    |   1   |   0   |
@@ -646,7 +646,7 @@ namespace nil {
                     constexpr static const std::size_t public_columns = public_columns_5;
                     constexpr static const std::size_t constant_columns = constant_columns_5;
                     constexpr static const std::size_t selector_columns = selector_columns_5;
-                    constexpr static const std::size_t table_columns = 
+                    constexpr static const std::size_t table_columns =
                             witness_columns + public_columns + constant_columns;
 
                     typedef placeholder_circuit_params<FieldType, arithmetization_params_5> circuit_params;
@@ -675,7 +675,7 @@ namespace nil {
                     q_mul[1] = zero;
 
                     // fill rows with ADD gate
-                    for (std::size_t i = 2; i < test_circuit.table_rows - 5; i++) {
+                    for (std::size_t i = 1; i < test_circuit.table_rows - 5; i++) {
                         table[0][i] = algebra::random_element<FieldType>();
                         table[1][i] = table[2][i - 1];
                         table[2][i] = table[0][i] + table[1][i];
@@ -692,24 +692,24 @@ namespace nil {
 
                     // fill rows with MUL gate
                     for (std::size_t i = test_circuit.table_rows - 5; i < test_circuit.table_rows - 3; i++) {
-                        table[0][i] = algebra::random_element<FieldType>();
+                        table[0][i] = table[4][1];
                         table[1][i] = table[3][0];
                         table[2][i] = table[0][i] * table[1][i] + table[0][i - 1];
                         table[3][i] = zero;
                         q_add[i] = zero;
                         q_mul[i] = one;
 
-                        plonk_variable<assignment_type> y(1, i, false, 
+                        plonk_variable<assignment_type> x(0, i, false,
                             plonk_variable<assignment_type>::column_type::witness);
-                        plonk_variable<assignment_type> p1(0, 0, false, 
+                        plonk_variable<assignment_type> p1(0, 0, false,
                             plonk_variable<assignment_type>::column_type::public_input);
-                        test_circuit.copy_constraints.push_back(plonk_copy_constraint<FieldType>(y, p1));
+                        plonk_variable<assignment_type> y(1, i, false,
+                            plonk_variable<assignment_type>::column_type::witness);
+                        plonk_variable<assignment_type> p2(1, 1, false,
+                            plonk_variable<assignment_type>::column_type::public_input);
 
-                        plonk_variable<assignment_type> z(2, i, false, 
-                            plonk_variable<assignment_type>::column_type::witness);
-                        plonk_variable<assignment_type> p2(1, 0, false, 
-                            plonk_variable<assignment_type>::column_type::public_input);
-                        test_circuit.copy_constraints.push_back(plonk_copy_constraint<FieldType>(z, p2));
+                        test_circuit.copy_constraints.push_back(plonk_copy_constraint<FieldType>(x, p2));
+                        test_circuit.copy_constraints.push_back(plonk_copy_constraint<FieldType>(y, p1));
                     }
                     table[3][1] = zero;
                     table[3][2] = one;
@@ -735,13 +735,13 @@ namespace nil {
                             public_input_assignment, constant_assignment, selectors_assignment));
 
                     plonk_variable<assignment_type> w0(0, 0, true,
-                                                 plonk_variable<assignment_type>::column_type::witness);
+                            plonk_variable<assignment_type>::column_type::witness);
                     plonk_variable<assignment_type> w1(1, 0, true,
-                                                 plonk_variable<assignment_type>::column_type::witness);
+                            plonk_variable<assignment_type>::column_type::witness);
                     plonk_variable<assignment_type> w2(2, 0, true,
-                                                 plonk_variable<assignment_type>::column_type::witness);
+                            plonk_variable<assignment_type>::column_type::witness);
                     plonk_variable<assignment_type> w0_prev(0, -1, true,
-                                                 plonk_variable<assignment_type>::column_type::witness);
+                            plonk_variable<assignment_type>::column_type::witness);
 
                     plonk_constraint<FieldType> add_constraint;
                     add_constraint += w0;
