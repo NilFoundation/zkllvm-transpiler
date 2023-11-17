@@ -497,6 +497,96 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
 }
 BOOST_AUTO_TEST_SUITE_END()
 
+BOOST_AUTO_TEST_SUITE(placeholder_circuit5)
+    using Endianness = nil::marshalling::option::big_endian;
+    using TTypeBase = nil::marshalling::field_type<Endianness>;
+
+    using curve_type = algebra::curves::bls12<381>;
+    using field_type = typename curve_type::scalar_field_type;
+
+    constexpr static const std::size_t table_rows_log = rows_log_5;
+    constexpr static const std::size_t table_rows = 1 << table_rows_log;
+    constexpr static const std::size_t permutation_size = permutation_5;
+    constexpr static const std::size_t usable_rows = (1 << table_rows_log) - 3;
+
+    struct placeholder_test_params {
+        using merkle_hash_type = hashes::keccak_1600<256>;
+        using transcript_hash_type = hashes::keccak_1600<256>;
+
+        constexpr static const std::size_t witness_columns = witness_columns_5;
+        constexpr static const std::size_t public_input_columns = public_columns_5;
+        constexpr static const std::size_t constant_columns = constant_columns_5;
+        constexpr static const std::size_t selector_columns = selector_columns_5;
+
+        using arithmetization_params =
+            plonk_arithmetization_params<witness_columns, public_input_columns, constant_columns, selector_columns>;
+
+        constexpr static const std::size_t lambda = 1;
+        constexpr static const std::size_t m = 2;
+    };
+    using circuit_t_params = placeholder_circuit_params<
+        field_type,
+        typename placeholder_test_params::arithmetization_params
+    >;
+
+    using transcript_type = typename transcript::fiat_shamir_heuristic_sequential<typename placeholder_test_params::transcript_hash_type>;
+
+    using lpc_params_type = commitments::list_polynomial_commitment_params<
+        typename placeholder_test_params::merkle_hash_type,
+        typename placeholder_test_params::transcript_hash_type,
+        placeholder_test_params::lambda,
+        placeholder_test_params::m
+    >;
+
+    using lpc_type = commitments::list_polynomial_commitment<field_type, lpc_params_type>;
+    using lpc_scheme_type = typename commitments::lpc_commitment_scheme<lpc_type>;
+    using lpc_placeholder_params_type = nil::crypto3::zk::snark::placeholder_params<circuit_t_params, lpc_scheme_type>;
+
+    using policy_type = zk::snark::detail::placeholder_policy<field_type, circuit_t_params>;
+BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
+    auto pi0 = test_global_alg_rnd_engine<field_type>();
+    auto pi1 = test_global_alg_rnd_engine<field_type>();
+    auto circuit = circuit_test_t<field_type>(pi0, pi1, test_global_alg_rnd_engine<field_type>, test_global_rnd_engine);
+
+    plonk_table_description<field_type, typename circuit_t_params::arithmetization_params> desc;
+    desc.rows_amount = table_rows;
+    desc.usable_rows_amount = usable_rows;
+
+    typename policy_type::constraint_system_type constraint_system(
+        circuit.gates,
+        circuit.copy_constraints,
+        circuit.lookup_gates,
+        circuit.lookup_tables
+    );
+    typename policy_type::variable_assignment_type assignments = circuit.table;
+
+    std::vector<std::size_t> columns_with_copy_constraints = {0, 1, 2, 3};
+
+    bool verifier_res;
+
+    // LPC commitment scheme
+    typename lpc_type::fri_type::params_type fri_params = create_fri_params<typename lpc_type::fri_type, field_type>(table_rows_log);
+    lpc_scheme_type lpc_scheme(fri_params);
+
+    typename placeholder_public_preprocessor<field_type, lpc_placeholder_params_type>::preprocessed_data_type
+        lpc_preprocessed_public_data = placeholder_public_preprocessor<field_type, lpc_placeholder_params_type>::process(
+            constraint_system, assignments.public_table(), desc, lpc_scheme, columns_with_copy_constraints.size()
+        );
+    auto printer = nil::blueprint::evm_verifier_printer<lpc_placeholder_params_type>(
+        constraint_system,
+        lpc_preprocessed_public_data.common_data,
+        lpc_scheme,
+        columns_with_copy_constraints.size(),
+        "circuit5",
+        26, /* gates library size threshold */
+        60, /* lookups library size threshold */
+        13, /* gates inline size threshold */
+        15 /* lookups inline size threshold */
+    );
+    printer.print();
+}
+BOOST_AUTO_TEST_SUITE_END()
+
 BOOST_AUTO_TEST_SUITE(placeholder_circuit6)
     using Endianness = nil::marshalling::option::big_endian;
     using TTypeBase = nil::marshalling::field_type<Endianness>;
