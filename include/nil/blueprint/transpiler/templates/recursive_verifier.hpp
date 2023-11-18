@@ -163,13 +163,69 @@ pallas::base_field_type::value_type pow2(pallas::base_field_type::value_type x, 
     return result;
 }
 
+pallas::base_field_type::value_type pow3(pallas::base_field_type::value_type x){
+    pallas::base_field_type::value_type result = x;
+    result = result * result;
+    result = result * x;
+    return result;
+}
+
+pallas::base_field_type::value_type pow4(pallas::base_field_type::value_type x){
+    pallas::base_field_type::value_type result = x;
+    result = result * result;
+    result = result * result;
+    return result;
+}
+
+pallas::base_field_type::value_type pow5(pallas::base_field_type::value_type x){
+    pallas::base_field_type::value_type result = x;
+    result = result * result;
+    result = result * result;
+    result = result * x;
+    return result;
+}
+
+pallas::base_field_type::value_type pow6(pallas::base_field_type::value_type x){
+    pallas::base_field_type::value_type result = x;
+    result = result * result;
+    result = result * x;
+    result = result * result;
+    return result;
+}
+
+pallas::base_field_type::value_type pow7(pallas::base_field_type::value_type x){
+    pallas::base_field_type::value_type result = x;
+    result = result * result;
+    result = result * x;
+    result = result * result;
+    result = result * x;
+    return result;
+}
+
+pallas::base_field_type::value_type pow8(pallas::base_field_type::value_type x){
+    pallas::base_field_type::value_type result = x;
+    result = result * result;
+    result = result * result;
+    result = result * result;
+    return result;
+}
+
+pallas::base_field_type::value_type pow9(pallas::base_field_type::value_type x){
+    pallas::base_field_type::value_type result = x;
+    result = result * result;
+    result = result * result;
+    result = result * result;
+    result = result * x;
+    return result;
+}
+
 pallas::base_field_type::value_type pow(pallas::base_field_type::value_type x, size_t p){
     pallas::base_field_type::value_type result = 1;
 	std::size_t mask = 1;
-	while(mask < p){mask = mask * 2;}
- 	while(mask > 0){
-        mask = mask / 2;
+	while(mask < p){mask = mask * 2;} // 8
+ 	while(mask > 1){
 		result = result * result;
+        mask = mask / 2;
 		if( p >= mask ){
 			result = result * x;
 			p = p - mask;
