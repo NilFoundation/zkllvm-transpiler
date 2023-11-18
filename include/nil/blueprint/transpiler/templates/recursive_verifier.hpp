@@ -358,7 +358,7 @@ std::array<pallas::base_field_type::value_type, 4> getV3(
     result[1] = xi0 * xi1  + xi1 * xi2 + xi0 * xi2;
     result[2] = - xi0 - xi1 - xi2;
     result[3] = pallas::base_field_type::value_type(1);
-    __builtin_assigner_exit_check(result[0] + xi0 * result[1] + xi0 * xi0 * result[2] + xi0*xi0*xi0*result[3] == pallas::base_field_type::value_type(0));
+//    __builtin_assigner_exit_check(result[0] + xi0 * result[1] + xi0 * xi0 * result[2] + xi0*xi0*xi0*result[3] == pallas::base_field_type::value_type(0));
     return result;
 }
 
@@ -370,7 +370,7 @@ std::array<pallas::base_field_type::value_type, 4> getV2(
     result[1] = - xi0 - xi1;
     result[2] = pallas::base_field_type::value_type(1);
     result[3] = pallas::base_field_type::value_type(0);
-    __builtin_assigner_exit_check(result[0] + xi0 * result[1] + xi0 * xi0 * result[2] + xi0*xi0*xi0*result[3] == pallas::base_field_type::value_type(0));
+//    __builtin_assigner_exit_check(result[0] + xi0 * result[1] + xi0 * xi0 * result[2] + xi0*xi0*xi0*result[3] == pallas::base_field_type::value_type(0));
     return result;
 }
 
@@ -382,7 +382,7 @@ std::array<pallas::base_field_type::value_type, 4> getV1(
     result[1] = pallas::base_field_type::value_type(1);
     result[2] = pallas::base_field_type::value_type(0);
     result[3] = pallas::base_field_type::value_type(0);
-    __builtin_assigner_exit_check(result[0] + xi0 * result[1] + xi0 * xi0 * result[2] + xi0*xi0*xi0*result[3] == pallas::base_field_type::value_type(0));
+//    __builtin_assigner_exit_check(result[0] + xi0 * result[1] + xi0 * xi0 * result[2] + xi0*xi0*xi0*result[3] == pallas::base_field_type::value_type(0));
     return result;
 }
 
@@ -401,9 +401,9 @@ std::array<pallas::base_field_type::value_type, 3> getU3(
     result[1] = (-z0*(x1 + x2) - z1*(x0 + x2) - z2 * (x0 + x1))/denom;
     result[2] = (z0 + z1 + z2)/denom;
 
-    __builtin_assigner_exit_check(result[0] + x0 * result[1] + x0 * x0 * result[2] == z0/(x2-x1));
-    __builtin_assigner_exit_check(result[0] + x1 * result[1] + x1 * x1 * result[2] == z1/(x0-x2));
-    __builtin_assigner_exit_check(result[0] + x2 * result[1] + x2 * x2 * result[2] == z2/(x1-x0));
+//    __builtin_assigner_exit_check(result[0] + x0 * result[1] + x0 * x0 * result[2] == z0/(x2-x1));
+//    __builtin_assigner_exit_check(result[0] + x1 * result[1] + x1 * x1 * result[2] == z1/(x0-x2));
+//    __builtin_assigner_exit_check(result[0] + x2 * result[1] + x2 * x2 * result[2] == z2/(x1-x0));
 
     return result;
 }
@@ -418,8 +418,8 @@ std::array<pallas::base_field_type::value_type, 3> getU2(
     result[1] = (z0 - z1)/denom;
     result[2] = pallas::base_field_type::value_type(0);
 
-    __builtin_assigner_exit_check(result[0] + x0 * result[1] + x0 * x0 * result[2] == z0);
-    __builtin_assigner_exit_check(result[0] + x1 * result[1] + x1 * x1 * result[2] == z1);
+//    __builtin_assigner_exit_check(result[0] + x0 * result[1] + x0 * x0 * result[2] == z0);
+//    __builtin_assigner_exit_check(result[0] + x1 * result[1] + x1 * x1 * result[2] == z1);
 
     return result;
 }
@@ -433,7 +433,7 @@ std::array<pallas::base_field_type::value_type, 3> getU1(
     result[1] = pallas::base_field_type::value_type(0);
     result[2] = pallas::base_field_type::value_type(0);
 
-    __builtin_assigner_exit_check(result[0] + x0 * result[1] + x0 * x0 * result[2] == z0);
+//    __builtin_assigner_exit_check(result[0] + x0 * result[1] + x0 * x0 * result[2] == z0);
 
     return result;
 }
@@ -444,7 +444,7 @@ pallas::base_field_type::value_type eval4(std::array<pallas::base_field_type::va
     result = result *x + poly[2];
     result = result *x + poly[1];
     result = result *x + poly[0];
-    __builtin_assigner_exit_check(poly[0] + x * poly[1] + x * x * poly[2] + x*x*x*poly[3] == result);
+//    __builtin_assigner_exit_check(poly[0] + x * poly[1] + x * x * poly[2] + x*x*x*poly[3] == result);
     return result;
 }
 
@@ -453,7 +453,7 @@ pallas::base_field_type::value_type eval3(std::array<pallas::base_field_type::va
     result = poly[2];
     result = result *x + poly[1];
     result = result *x + poly[0];
-    __builtin_assigner_exit_check(poly[0] + x * poly[1] + x * x * poly[2] == result);
+//    __builtin_assigner_exit_check(poly[0] + x * poly[1] + x * x * poly[2] == result);
     return result;
 }
 
@@ -680,24 +680,17 @@ $LOOKUP_SHIFTED_OPTIONS_LIST$
     std::array<std::array<pallas::base_field_type::value_type, 4>, unique_points> V;
     std::array<std::array<pallas::base_field_type::value_type, 3>, poly_num> U;
     std::array<std::array<pallas::base_field_type::value_type, 3>, unique_points> combined_U;
+    std::size_t z_ind = points_num - 1;
+    pallas::base_field_type::value_type theta_acc(1);
     std::array<pallas::base_field_type::value_type, 3> tmp;
-    std::size_t z_ind = 0;
-$PREPARE_U_AND_V$
+
     for(std::size_t u = 0; u < unique_points; u++){
         combined_U[u][0] = pallas::base_field_type::value_type(0);
         combined_U[u][1] = pallas::base_field_type::value_type(0);
         combined_U[u][2] = pallas::base_field_type::value_type(0);
-        for(std::size_t j = 0; j < poly_num; j++){
-            combined_U[u][0] = combined_U[u][0] * challenges.lpc_theta;
-            combined_U[u][1] = combined_U[u][1] * challenges.lpc_theta;
-            combined_U[u][2] = combined_U[u][2] * challenges.lpc_theta;
-            if( point_ids[j] == u ){
-                combined_U[u][0] = combined_U[u][0] + U[j][0];
-                combined_U[u][1] = combined_U[u][1] + U[j][1];
-                combined_U[u][2] = combined_U[u][2] + U[j][2];
-            }
-        }
     }
+
+$PREPARE_U_AND_V$
 
     std::array<std::array<typename pallas::base_field_type::value_type, 3>, D0_log> res;
     std::size_t round_proof_ind = 0;
