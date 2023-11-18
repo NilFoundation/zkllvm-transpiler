@@ -807,23 +807,28 @@ namespace nil {
                         if(j != 0) prepare_U_V_str << ", ";
                         prepare_U_V_str << "singles[" << singles[unique_points[i][j]] << "]";
                     }
-                    prepare_U_V_str << ");" << std::endl;;
+                    prepare_U_V_str << ");" << std::endl << std::endl;
                 }
-                for(std::size_t i = 0; i < point_ids.size(); i++){
-                    prepare_U_V_str << "\tU[" << i << "] = getU"<< unique_points[point_ids[i]].size() << "(";
+                for(std::size_t ind = 0; ind < point_ids.size(); ind++){
+                    std::size_t i = point_ids.size() - 1 - ind;
+                    prepare_U_V_str << "\ttmp = getU"<< unique_points[point_ids[i]].size() << "(";
                     for(std::size_t j = 0; j < unique_points[point_ids[i]].size(); j++ ){
                         if(j != 0) prepare_U_V_str << ", ";
                         prepare_U_V_str << "singles[" << singles[unique_points[point_ids[i]][j]] << "]";
                     }
                     for(std::size_t j = 0; j < unique_points[point_ids[i]].size(); j++ ){
                         prepare_U_V_str << ", ";
-                        if( j == 0 )
+                        if( j == unique_points[point_ids[i]].size() - 1 )
                             prepare_U_V_str << "proof.z[z_ind]";
                         else
-                            prepare_U_V_str << "proof.z[z_ind + "<< j <<" ]";
+                            prepare_U_V_str << "proof.z[z_ind - "<< unique_points[point_ids[i]].size() - j - 1 <<" ]";
                     }
                     prepare_U_V_str << ");" << std::endl;
-                    prepare_U_V_str << "\tz_ind = z_ind + " << unique_points[point_ids[i]].size() << ";" << std::endl;
+                    prepare_U_V_str << "\tz_ind = z_ind - " << unique_points[point_ids[i]].size() << ";" << std::endl;
+                    for(std::size_t j = 0; j < unique_points[point_ids[i]].size(); j++ ){
+                        prepare_U_V_str << "\tcombined_U[" << point_ids[i] << "]["  << j << "] = combined_U[" << point_ids[i] << "][" << j << "] + tmp[" << j << "] * theta_acc;" << std::endl;
+                    }
+                    prepare_U_V_str << "\ttheta_acc = theta_acc * challenges.lpc_theta;" << std::endl;
                 }
 
                 std::size_t fixed_values_size = permutation_size * 2 + 2 + arithmetization_params::constant_columns + arithmetization_params::selector_columns;
