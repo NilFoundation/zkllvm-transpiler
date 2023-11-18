@@ -37,9 +37,9 @@
 #include<nil/crypto3/hash/sha2.hpp>
 #include <nil/crypto3/algebra/random_element.hpp>
 
-#include <nil/actor/zk/math/expression.hpp>
-#include <nil/actor/zk/math/expression_visitors.hpp>
-#include <nil/actor/zk/math/expression_evaluator.hpp>
+#include <nil/crypto3/zk/math/expression.hpp>
+#include <nil/crypto3/zk/math/expression_visitors.hpp>
+#include <nil/crypto3/zk/math/expression_evaluator.hpp>
 
 #include<nil/blueprint/transpiler/templates/recursive_verifier.hpp>
 
@@ -457,7 +457,7 @@ namespace nil {
                 std::string operator()(
                         const pow_operation_type& pow) {
                     std::string result = boost::apply_visitor(*this, pow.get_expr().get_expr());
-                    return "pow(" + result + ", " + to_string(pow.get_power()) + ")";
+                    return "pow" + to_string(pow.get_power()) + "(" + result +")";
                 }
 
                 std::string operator()(
