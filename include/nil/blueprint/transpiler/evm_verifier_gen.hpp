@@ -784,65 +784,63 @@ namespace nil {
             }
 
             std::string eta_point_verification_code() {
+                std::cout << "Generating eta point verification code" << std::endl;
                 std::stringstream result;
                 auto fixed_poly_values = _common_data.commitment_scheme_data;
-                
+
                 std::size_t poly_points = 2;
-                
+
                 if (fixed_poly_values.size() == 0)
                     return "";
-                
-                result << "\t\t{" << std::endl;
-                result << "\t\t\tuint256 poly_at_eta;" << std::endl;
 
-                result << "\t\t\t/* 1 - 2*permutation_size */" << std::endl;
+                result << "\t\t/*{ " << std::endl;
+                result << "\t\t\tbool b = true;" << std::endl;
+
+                result << "\t\t\t// 1 - 2*permutation_size " << std::endl;
                 std::size_t i = 0, j = 0;
                 std::size_t point_offset = 8;
 
                 while (j < 2*_permutation_size) {
-                    result << "\t\t\tpoly_at_eta = basic_marshalling.get_uint256_be(blob, " << point_offset+(poly_points-1)*32 << ");" << "// " << i << std::endl;
-                    result << "\t\t\tif(poly_at_eta != " << std::showbase<< std::hex << fixed_poly_values[0][i] << ") return false;" << std::endl;
+                    result << "\t\t\tb = b && (basic_marshalling.get_uint256_be(blob, " << point_offset+(poly_points-1)*32 << ") != " << std::showbase<< std::hex << fixed_poly_values[0][i] << ");" << std::endl;
                     point_offset += 32*poly_points;
                     ++i;
                     ++j;
                 }
 
-                result << "\t\t\t/* 2 - special selectors */" << std::endl;
+                result << "\t\t\t// 2 - special selectors " << std::endl;
                 poly_points = 3;
                 j = 0;
                 while (j < 2) {
-                    result << "\t\t\tpoly_at_eta = basic_marshalling.get_uint256_be(blob, " << point_offset+(poly_points-1)*32 << ");" << "// " << i << std::endl;
-                    result << "\t\t\tif(poly_at_eta != " << std::showbase<< std::hex << fixed_poly_values[0][i] << ") return false;" << std::endl;
+                    result << "\t\t\tb = b && (basic_marshalling.get_uint256_be(blob, " << point_offset+(poly_points-1)*32 << ") != " << std::showbase<< std::hex << fixed_poly_values[0][i] << ");" << std::endl;
                     point_offset += 32*poly_points;
                     ++i;
                     ++j;
                 }
 
                 std::size_t column_rotation_offset = PlaceholderParams::witness_columns + PlaceholderParams::public_input_columns;
-                result << "\t\t\t/* 3 - constant columns */" << std::endl;
+                result << "\t\t\t// - constant columns " << std::endl;
                 j = 0;
                 while (j < PlaceholderParams::arithmetization_params::constant_columns) {
                     poly_points = _common_data.columns_rotations[column_rotation_offset + j].size()+1;
-                    result << "\t\t\tpoly_at_eta = basic_marshalling.get_uint256_be(blob, " << point_offset+(poly_points-1)*32 << ");" << "// " << i << std::endl;
-                    result << "\t\t\tif(poly_at_eta != " << std::showbase<< std::hex << fixed_poly_values[0][i] << ") return false;" << std::endl;
+                    result << "\t\t\tb= b & (basic_marshalling.get_uint256_be(blob, " << point_offset+(poly_points-1)*32 << ") != " << std::showbase<< std::hex << fixed_poly_values[0][i] << ");" << std::endl;
                     point_offset += 32*poly_points;
                     ++i;
                     ++j;
                 }
 
-                result << "\t\t\t/* 4 - selector columns */" << std::endl;
+                result << "\t\t\t// 4 - selector columns" << std::endl;
                 column_rotation_offset = PlaceholderParams::witness_columns + PlaceholderParams::public_input_columns + PlaceholderParams::constant_columns;
                 j = 0;
                 while (j < PlaceholderParams::arithmetization_params::selector_columns) {
                     poly_points = _common_data.columns_rotations[column_rotation_offset + j].size()+1;
-                    result << "\t\t\tpoly_at_eta = basic_marshalling.get_uint256_be(blob, " << point_offset+(poly_points-1)*32 << ");" << "// " << i << std::endl;
-                    result << "\t\t\tif(poly_at_eta != " << std::showbase<< std::hex << fixed_poly_values[0][i] << ") return false;" << std::endl;
+                    result << "\t\t\tb = b & (basic_marshalling.get_uint256_be(blob, " << point_offset+(poly_points-1)*32 << ") != " << std::showbase<< std::hex << fixed_poly_values[0][i] << ");" << std::endl;
                     point_offset += 32*(poly_points);
                     ++i;
                     ++j;
                 }
 
-                result << "\t\t}" << std::endl;
+                result << "\t\t\tif(!b) return false;" << std::endl;
+                result << "\t\t} */" << std::endl;
                 return result.str();
             }
 
