@@ -154,7 +154,7 @@ pallas::base_field_type::value_type transcript_challenge(transcript_state_type &
     return tr_state.state[0];
 }
 
-pallas::base_field_type::value_type pow2(pallas::base_field_type::value_type x, size_t plog){
+pallas::base_field_type::value_type pow2_p(pallas::base_field_type::value_type x, size_t plog){
     if(plog == 0) return pallas::base_field_type::value_type(1);
     pallas::base_field_type::value_type result = x;
     for(std::size_t i = 0; i < plog; i++){
@@ -163,51 +163,42 @@ pallas::base_field_type::value_type pow2(pallas::base_field_type::value_type x, 
     return result;
 }
 
+pallas::base_field_type::value_type pow2(pallas::base_field_type::value_type x){
+    return x*x;
+}
+
 pallas::base_field_type::value_type pow3(pallas::base_field_type::value_type x){
-    pallas::base_field_type::value_type result = x;
-    result = result * result;
-    result = result * x;
-    return result;
+    return x*x*x;
 }
 
 pallas::base_field_type::value_type pow4(pallas::base_field_type::value_type x){
-    pallas::base_field_type::value_type result = x;
-    result = result * result;
+    pallas::base_field_type::value_type result = x * x;
     result = result * result;
     return result;
 }
 
 pallas::base_field_type::value_type pow5(pallas::base_field_type::value_type x){
-    pallas::base_field_type::value_type result = x;
+    pallas::base_field_type::value_type result = x * x;
     result = result * result;
-    result = result * result;
-    result = result * x;
-    return result;
+    return result * x;
 }
 
 pallas::base_field_type::value_type pow6(pallas::base_field_type::value_type x){
-    pallas::base_field_type::value_type result = x;
-    result = result * result;
-    result = result * x;
+    pallas::base_field_type::value_type result = x * x * x;
     result = result * result;
     return result;
 }
 
 pallas::base_field_type::value_type pow7(pallas::base_field_type::value_type x){
-    pallas::base_field_type::value_type result = x;
+    pallas::base_field_type::value_type result = x * x * x;
     result = result * result;
-    result = result * x;
-    result = result * result;
-    result = result * x;
-    return result;
+    return result * x;
 }
 
 pallas::base_field_type::value_type pow8(pallas::base_field_type::value_type x){
-    pallas::base_field_type::value_type result = x;
+    pallas::base_field_type::value_type result = x * x;
     result = result * result;
-    result = result * result;
-    result = result * result;
-    return result;
+    return result * result;
 }
 
 pallas::base_field_type::value_type pow9(pallas::base_field_type::value_type x){
@@ -311,7 +302,7 @@ placeholder_challenges_type generate_challenges(
 std::pair<pallas::base_field_type::value_type, pallas::base_field_type::value_type> xi_polys(
     pallas::base_field_type::value_type xi
 ){
-    pallas::base_field_type::value_type xi_n = pow2(xi, rows_log) - pallas::base_field_type::value_type(1);
+    pallas::base_field_type::value_type xi_n = pow2_p(xi, rows_log) - pallas::base_field_type::value_type(1);
     pallas::base_field_type::value_type l0 = (xi - pallas::base_field_type::value_type(1))*pallas::base_field_type::value_type(rows_amount);
     l0 = xi_n / l0;
     return std::make_pair(l0, xi_n);
@@ -739,12 +730,12 @@ $PREPARE_U_AND_V$
 		}
 
         initial_proof_ind = initial_proof_ind + poly_num * 2;
-		int in = initial_proof_ind - 1;
+        std::size_t in = initial_proof_ind - 1;
 		for(int k = poly_num; k > 0;){
             k--;
 			y[0] = y[0] + theta_acc * proof.initial_proof_values[in-1] * V_evals[point_ids[k]][0];
 			y[1] = y[1] + theta_acc * proof.initial_proof_values[in] * V_evals[point_ids[k]][1];
-			in = in - 2;
+            in -= 2;
 			theta_acc = theta_acc * challenges.lpc_theta;
 		}
 
