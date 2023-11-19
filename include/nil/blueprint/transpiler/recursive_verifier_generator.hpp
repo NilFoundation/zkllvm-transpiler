@@ -831,6 +831,21 @@ namespace nil {
                     prepare_U_V_str << "\ttheta_acc = theta_acc * challenges.lpc_theta;" << std::endl;
                 }
 
+                std::stringstream compute_combined_y;
+                for(std::size_t i = 0; i < point_ids.size(); i++){
+                    /*y[0] = y[0] * challenges.lpc_theta;
+ 			        y[0] = y[0] + proof.initial_proof_values[initial_proof_ind] * V_evals[point_ids[k]][0];
+			        y[1] = y[1] * challenges.lpc_theta;
+			        y[1] = y[1] + proof.initial_proof_values[initial_proof_ind+1] * V_evals[point_ids[k]][1];*/
+
+//                    compute_combined_y << "\t\ty[0] = y[0]*challenges.lpc_theta;" << std::endl;
+//                    compute_combined_y << "\t\ty[0] = y[0] + proof.initial_proof_values[initial_proof_ind] * V_evals[" << point_ids[i]<< "][0];" << std::endl;
+//                    compute_combined_y << "\t\tinitial_proof_ind++;" << std::endl;
+//                    compute_combined_y << "\t\ty[1] = y[1]*challenges.lpc_theta;" << std::endl;
+//                    compute_combined_y << "\t\ty[1] = y[1] + proof.initial_proof_values[initial_proof_ind] * V_evals[" << point_ids[i]<< "][1];" << std::endl;
+//                    compute_combined_y << "\t\tinitial_proof_ind++;" << std::endl;
+                }
+
                 std::size_t fixed_values_size = permutation_size * 2 + 2 + arithmetization_params::constant_columns + arithmetization_params::selector_columns;
                 std::size_t variable_values_size = arithmetization_params::witness_columns + arithmetization_params::public_input_columns;
                 std::string batches_size_list = to_string(fixed_values_size) + ", " + to_string(variable_values_size) + ", " +
@@ -881,6 +896,7 @@ namespace nil {
                 reps["$SINGLES_AMOUNT$"] = to_string(singles.size());
                 reps["$SINGLES_COMPUTATION$"] = singles_str;
                 reps["$PREPARE_U_AND_V$"] = prepare_U_V_str.str();
+                reps["$COMPUTE_COMBINED_Y$"] = compute_combined_y.str();
                 reps["$SORTED_COLUMNS$"] = to_string(constraint_system.sorted_lookup_columns_number());
                 reps["$SORTED_ALPHAS$"] = to_string(use_lookups? constraint_system.sorted_lookup_columns_number() - 1: 1);
                 reps["$LOOKUP_TABLE_AMOUNT$"] = to_string(constraint_system.lookup_tables().size());
