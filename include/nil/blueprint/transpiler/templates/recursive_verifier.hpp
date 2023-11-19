@@ -727,30 +727,26 @@ $PREPARE_U_AND_V$
         }
 
         std::array<pallas::base_field_type::value_type, 2> y = {0,0};
-        std::array<pallas::base_field_type::value_type, 2> combined_Q = {0,0};
+		std::array<std::array<pallas::base_field_type::value_type, 2>, unique_points> V_evals;
         std::size_t ind = 0;
+		pallas::base_field_type::value_type theta_acc(1);
 
-        for(std::size_t u = 0; u < unique_points; u++){
-            combined_Q[0] = pallas::base_field_type::value_type(0);
-            combined_Q[1] = pallas::base_field_type::value_type(0);
-            ind = initial_proof_ind;
-            for(std::size_t k = 0; k < poly_num; k++ ){
-                combined_Q[0] *= challenges.lpc_theta;
-                combined_Q[1] *= challenges.lpc_theta;
-                if(point_ids [k] == u){
-                    combined_Q[0] += proof.initial_proof_values[ind];
-                    combined_Q[1] += proof.initial_proof_values[ind+1];
-                }
-                ind = ind + 2;
-            }
-            combined_Q[0] = combined_Q[0] - eval3(combined_U[u], res[0][0]);
-            combined_Q[1] = combined_Q[1] - eval3(combined_U[u], res[0][1]);
-            combined_Q[0] = combined_Q[0] / eval4(V[u], res[0][0]);
-            combined_Q[1] = combined_Q[1] / eval4(V[u], res[0][1]);
-            y[0] = y[0] + combined_Q[0];
-            y[1] = y[1] + combined_Q[1];
-        }
-        initial_proof_ind = ind;
+		for(std::size_t u = 0; u < unique_points; u++){
+			V_evals[u][0] = pallas::base_field_type::value_type(1) / eval4(V[u], res[0][0]);
+			V_evals[u][1] = pallas::base_field_type::value_type(1) / eval4(V[u], res[0][1]);
+			y[0] = y[0] - eval3(combined_U[u], res[0][0]) * V_evals[u][0];
+			y[1] = y[1] - eval3(combined_U[u], res[0][1]) * V_evals[u][1];
+		}
+
+        initial_proof_ind = initial_proof_ind + poly_num * 2;
+		int in = initial_proof_ind - 1;
+		for(int k = poly_num; k > 0;){
+            k--;
+			y[0] = y[0] + theta_acc * proof.initial_proof_values[in-1] * V_evals[point_ids[k]][0];
+			y[1] = y[1] + theta_acc * proof.initial_proof_values[in] * V_evals[point_ids[k]][1];
+			in = in - 2;
+			theta_acc = theta_acc * challenges.lpc_theta;
+		}
 
         std::size_t D = D0_log - 1;
         pallas::base_field_type::value_type rhash;
