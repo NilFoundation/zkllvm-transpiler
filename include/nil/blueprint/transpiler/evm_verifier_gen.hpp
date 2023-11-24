@@ -794,6 +794,22 @@ namespace nil {
                 result << "\t\t\tuint256 poly_at_eta;" << std::endl;
 
                 result << "\t\t\t/* 1 - 2*permutation_size */" << std::endl;
+                std::vector<std::uint8_t> eta_buf;
+
+                std::size_t poly_points = 2*_permutation_size;
+                /* special_selectors */
+                poly_points += 2;
+                poly_points += PlaceholderParams::arithmetization_params::constant_columns;
+                poly_points += PlaceholderParams::arithmetization_params::selector_columns;
+                eta_buf.resize( 32*poly_points );
+
+                std::array<std::uint8_t, 0> empty;
+                auto writer = eta_buf.begin();
+
+                result << "\t\t/* eta points check */" << std::endl;
+                result << "\t\t{" << std::endl;
+                result << "\t\t\tuint256[" << poly_points << "] memory points;" << std::endl;
+
                 std::size_t i = 0, j = 0;
                 std::size_t point_offset = 8;
 
