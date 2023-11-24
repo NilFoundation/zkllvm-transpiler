@@ -809,9 +809,8 @@ namespace nil {
                 auto writer = eta_buf.begin();
 
                 result << "\t\t/* eta points check */" << std::endl;
-                result << "\t\tunchecked {" << std::endl;
+                result << "\t\t{" << std::endl;
                 result << "\t\t\tuint256[" << poly_points << "] memory points;" << std::endl;
-                result << "\t\t\tuint256 points_count;" << std::endl;
 
                 std::size_t i = 0, j = 0;
                 std::size_t point_offset = 8;
