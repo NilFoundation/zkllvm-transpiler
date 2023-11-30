@@ -692,7 +692,7 @@ $PREPARE_U_AND_V$
     std::size_t round_proof_hash_ind = 0;
 
     for(std::size_t i = 0; i < lambda; i++){
-        __builtin_assigner_fri_cosets(res.data(), D0_log, D0_omega, 256, challenges.fri_x_indices[i]);
+        __builtin_assigner_fri_cosets(res.data(), D0_log, D0_omega, challenges.fri_x_indices[i]);
 
         pallas::base_field_type::value_type hash_state;
         for(std::size_t b = 0; b < batches_num; b++){
