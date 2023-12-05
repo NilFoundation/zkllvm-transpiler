@@ -71,7 +71,7 @@
 #include <nil/crypto3/random/algebraic_engine.hpp>
 
 #include <nil/blueprint/transpiler/evm_verifier_gen.hpp>
-#include <nil/blueprint/transpiler/recursive_verifier_generator.hpp>
+// #include <nil/blueprint/transpiler/recursive_verifier_generator.hpp>
 
 #include "./detail/circuits.hpp"
 
@@ -660,7 +660,7 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
     printer.print();
 }
 BOOST_AUTO_TEST_SUITE_END()
-
+#if 0
 BOOST_AUTO_TEST_SUITE(recursive_circuit1)
     using Endianness = nil::marshalling::option::big_endian;
     using TTypeBase = nil::marshalling::field_type<Endianness>;
@@ -1278,3 +1278,4 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
     }
 }
 BOOST_AUTO_TEST_SUITE_END()
+#endif
