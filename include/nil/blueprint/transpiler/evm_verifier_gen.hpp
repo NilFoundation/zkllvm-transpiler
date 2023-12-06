@@ -876,16 +876,9 @@ namespace nil {
                 eta_hash::digest_type hash_result = crypto3::hash<eta_hash>(eta_buf);
                 result << "\t\t\t/* Check keccak(points) */" << std::endl;
                 result << "\t\t\tif ( bytes32(0x" << std::to_string(hash_result).data() << ") != keccak256(abi.encode(points))) {" << std::endl;
-//                result << "\t\t\t\temit WrongEtaPointValues();" << std::endl;
                 result << "\t\t\t\treturn false;" << std::endl;
                 result << "\t\t\t}" << std::endl;
                 result << "\t\t}" << std::endl;
-
-                std::cout << "eta_hash : " << std::to_string(hash_result).data() << std::endl;
-                for(std::size_t i = 0; i< eta_buf.size(); ++i) {
-                    std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)eta_buf[i];
-                }
-                std::cout << std::endl;
 
                 return result.str();
             }
