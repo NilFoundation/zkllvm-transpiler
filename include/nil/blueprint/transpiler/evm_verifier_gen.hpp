@@ -567,11 +567,9 @@ namespace nil {
 
                 i = 0;
                 for (const auto& gate: _constraint_system.gates()) {
-                    std::cout << "Gate " << i << std::endl;
                     variable_type sel_var(gate.selector_index, 0, true, variable_type::column_type::selector);
                     std::size_t j = 0;
                     for (const auto& constraint: gate.constraints) {
-                        std::cout << "Constraint " << j << std::endl;
                         std::string code = constraint_computation_code_optimized(_var_indices, constraint);
                         std::size_t cost = estimate_constraint_cost(code);
                         std::size_t selector_index = _var_indices.at(sel_var)*0x20;
@@ -784,63 +782,87 @@ namespace nil {
             }
 
             std::string eta_point_verification_code() {
-                std::cout << "Generating eta point verification code" << std::endl;
                 std::stringstream result;
                 auto fixed_poly_values = _common_data.commitment_scheme_data;
-
+                
                 std::size_t poly_points = 2;
-
+                
                 if (fixed_poly_values.size() == 0)
                     return "";
+                
+                result << "\t\t{" << std::endl;
+                result << "\t\t\tuint256 poly_at_eta;" << std::endl;
 
-                result << "\t\t/*{ " << std::endl;
-                result << "\t\t\tbool b = true;" << std::endl;
+                result << "\t\t\t/* 1 - 2*permutation_size */" << std::endl;
+                std::vector<std::uint8_t> eta_buf;
 
-                result << "\t\t\t// 1 - 2*permutation_size " << std::endl;
+                std::size_t poly_points = 2*_permutation_size;
+                /* special_selectors */
+                poly_points += 2;
+                poly_points += PlaceholderParams::arithmetization_params::constant_columns;
+                poly_points += PlaceholderParams::arithmetization_params::selector_columns;
+                eta_buf.resize( 32*poly_points );
+
+                std::array<std::uint8_t, 0> empty;
+                auto writer = eta_buf.begin();
+
+                result << "\t\t/* eta points check */" << std::endl;
+                result << "\t\t{" << std::endl;
+                result << "\t\t\tuint256[" << poly_points << "] memory points;" << std::endl;
+
                 std::size_t i = 0, j = 0;
                 std::size_t point_offset = 8;
 
                 while (j < 2*_permutation_size) {
-                    result << "\t\t\tb = b && (basic_marshalling.get_uint256_be(blob, " << point_offset+(poly_points-1)*32 << ") != " << std::showbase<< std::hex << fixed_poly_values[0][i] << ");" << std::endl;
+                    result << "\t\t\tpoly_at_eta = basic_marshalling.get_uint256_be(blob, " << point_offset+(poly_points-1)*32 << ");" << "// " << i << std::endl;
+                    result << "\t\t\tif(poly_at_eta != " << std::showbase<< std::hex << fixed_poly_values[0][i] << ") return false;" << std::endl;
                     point_offset += 32*poly_points;
                     ++i;
                     ++j;
                 }
 
-                result << "\t\t\t// 2 - special selectors " << std::endl;
+                result << "\t\t\t/* 2 - special selectors */" << std::endl;
                 poly_points = 3;
                 j = 0;
                 while (j < 2) {
-                    result << "\t\t\tb = b && (basic_marshalling.get_uint256_be(blob, " << point_offset+(poly_points-1)*32 << ") != " << std::showbase<< std::hex << fixed_poly_values[0][i] << ");" << std::endl;
+                    result << "\t\t\tpoly_at_eta = basic_marshalling.get_uint256_be(blob, " << point_offset+(poly_points-1)*32 << ");" << "// " << i << std::endl;
+                    result << "\t\t\tif(poly_at_eta != " << std::showbase<< std::hex << fixed_poly_values[0][i] << ") return false;" << std::endl;
                     point_offset += 32*poly_points;
                     ++i;
                     ++j;
                 }
 
                 std::size_t column_rotation_offset = PlaceholderParams::witness_columns + PlaceholderParams::public_input_columns;
-                result << "\t\t\t// - constant columns " << std::endl;
+                result << "\t\t\t/* 3 - constant columns */" << std::endl;
                 j = 0;
                 while (j < PlaceholderParams::arithmetization_params::constant_columns) {
                     poly_points = _common_data.columns_rotations[column_rotation_offset + j].size()+1;
-                    result << "\t\t\tb= b & (basic_marshalling.get_uint256_be(blob, " << point_offset+(poly_points-1)*32 << ") != " << std::showbase<< std::hex << fixed_poly_values[0][i] << ");" << std::endl;
+                    result << "\t\t\tpoly_at_eta = basic_marshalling.get_uint256_be(blob, " << point_offset+(poly_points-1)*32 << ");" << "// " << i << std::endl;
+                    result << "\t\t\tif(poly_at_eta != " << std::showbase<< std::hex << fixed_poly_values[0][i] << ") return false;" << std::endl;
                     point_offset += 32*poly_points;
                     ++i;
                     ++j;
                 }
 
-                result << "\t\t\t// 4 - selector columns" << std::endl;
+                result << "\t\t\t/* 4 - selector columns */" << std::endl;
                 column_rotation_offset = PlaceholderParams::witness_columns + PlaceholderParams::public_input_columns + PlaceholderParams::constant_columns;
                 j = 0;
                 while (j < PlaceholderParams::arithmetization_params::selector_columns) {
                     poly_points = _common_data.columns_rotations[column_rotation_offset + j].size()+1;
-                    result << "\t\t\tb = b & (basic_marshalling.get_uint256_be(blob, " << point_offset+(poly_points-1)*32 << ") != " << std::showbase<< std::hex << fixed_poly_values[0][i] << ");" << std::endl;
+                    result << "\t\t\tpoly_at_eta = basic_marshalling.get_uint256_be(blob, " << point_offset+(poly_points-1)*32 << ");" << "// " << i << std::endl;
+                    result << "\t\t\tif(poly_at_eta != " << std::showbase<< std::hex << fixed_poly_values[0][i] << ") return false;" << std::endl;
                     point_offset += 32*(poly_points);
                     ++i;
                     ++j;
                 }
 
-                result << "\t\t\tif(!b) return false;" << std::endl;
-                result << "\t\t} */" << std::endl;
+                eta_hash::digest_type hash_result = crypto3::hash<eta_hash>(eta_buf);
+                result << "\t\t\t/* Check keccak(points) */" << std::endl;
+                result << "\t\t\tif ( bytes32(0x" << std::to_string(hash_result).data() << ") != keccak256(abi.encode(points))) {" << std::endl;
+                result << "\t\t\t\treturn false;" << std::endl;
+                result << "\t\t\t}" << std::endl;
+                result << "\t\t}" << std::endl;
+
                 return result.str();
             }
 
