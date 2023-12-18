@@ -596,8 +596,10 @@ namespace nil {
                     gate_argument_str << "\t\tuint256 gate;" << std::endl;
                     gate_argument_str << print_constraint_series(it, constraints.end());
                 } else {
+                    std::cout << "I am here!" << std::endl;
                     auto it = constraints.begin();
                     while (it != constraints.end()) {
+                        std::cout << "Gates modules count" <<  gate_modules_count << std::endl;
                         std::string code = print_constraint_series(it, constraints.end());
 
                         std::string result = modular_external_gate_library_template;
@@ -794,6 +796,7 @@ namespace nil {
                 if (fixed_poly_values.size() == 0)
                     return "";
 
+                result << "\t\t\t///* 1 - 2*permutation_size */" << std::endl;
                 std::vector<std::uint8_t> eta_buf;
 
                 std::size_t poly_points = 2*_permutation_size;
@@ -806,7 +809,7 @@ namespace nil {
                 std::array<std::uint8_t, 0> empty;
                 auto writer = eta_buf.begin();
 
-                result << "\t\t/* eta points check */" << std::endl;
+                result << "\t\t///* eta points check */" << std::endl;
                 result << "\t\t{" << std::endl;
                 result << "\t\t\tuint256[" << poly_points << "] memory points;" << std::endl;
 
