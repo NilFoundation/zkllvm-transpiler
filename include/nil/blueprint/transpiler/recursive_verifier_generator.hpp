@@ -349,7 +349,8 @@ namespace nil {
             static inline std::string generate_input(
                 std::vector<typename field_type::value_type> public_input,
                 const verification_key_type &vk,
-                const proof_type &proof
+                const proof_type &proof,
+                const std::array<std::size_t, arithmetization_params::public_input_columns> public_input_sizes
             ){
                 std::stringstream out;
                 out << "[" << std::endl;
@@ -616,7 +617,8 @@ namespace nil {
                 const constraint_system_type &constraint_system,
                 const common_data_type &common_data,
                 const commitment_scheme_type &commitment_scheme,
-                std::size_t permutation_size
+                std::size_t permutation_size,
+                const std::array<std::size_t, arithmetization_params::public_input_columns> public_input_sizes
             ){
                 std::cout << "Permutation_size = " << permutation_size << std::endl;
                 std::string result = nil::blueprint::recursive_verifier_template;
@@ -846,6 +848,12 @@ namespace nil {
 //                    compute_combined_y << "\t\tinitial_proof_ind++;" << std::endl;
                 }
 
+                std::string public_input_sizes_str = "";
+                for(std::size_t i = 0; i < public_input_sizes.size(); i++){
+                    if(i != 0) public_input_sizes_str += ", ";
+                    public_input_sizes_str += to_string(public_input_sizes[i]);
+                }
+
                 std::size_t fixed_values_size = permutation_size * 2 + 2 + arithmetization_params::constant_columns + arithmetization_params::selector_columns;
                 std::size_t variable_values_size = arithmetization_params::witness_columns + arithmetization_params::public_input_columns;
                 std::string batches_size_list = to_string(fixed_values_size) + ", " + to_string(variable_values_size) + ", " +
@@ -918,6 +926,7 @@ namespace nil {
                 reps["$LOOKUP_SHIFTED_OPTIONS_LIST$"] = lookup_shifted_options_list.str();
                 reps["$LOOKUP_SORTED_START$"] = to_string(4*permutation_size + 6 + table_values_num + (use_lookups?4:2) + quotient_polys);
                 reps["$BATCHES_AMOUNT_LIST$"] = batches_size_list;
+                reps["$PUBLIC_INPUT_SIZES$"] = public_input_sizes_str;
 
                 result = replace_all(result, reps);
                 return result;

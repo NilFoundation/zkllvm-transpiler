@@ -56,7 +56,8 @@ const std::array<int, gates_amount> gates_sizes = {$GATES_SIZES$};
 const size_t unique_points = $UNIQUE_POINTS$;
 const std::array<int, poly_num> point_ids = {$POINTS_IDS$};
 const size_t singles_amount = $SINGLES_AMOUNT$;
-std::array<std::size_t, batches_num> batches_amount_list = {$BATCHES_AMOUNT_LIST$};
+const std::array<std::size_t, batches_num> batches_amount_list = {$BATCHES_AMOUNT_LIST$};
+const std::array<std::size_t, public_input_amount> public_input_sizes = {$PUBLIC_INPUT_SIZES$};
 
 #ifdef __USE_LOOKUPS__
 const size_t lookup_table_amount = $LOOKUP_TABLE_AMOUNT$;
