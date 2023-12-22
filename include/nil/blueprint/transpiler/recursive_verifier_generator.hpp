@@ -116,13 +116,13 @@ namespace nil {
                     std::stringstream out;
                     out << hashed_data;
                     return generate_field_array2_from_64_hex_string(out.str());
-                }  else if constexpr(nil::crypto3::hashes::is_poseidon<HashType>::value){
+                } else if constexpr(std::is_same<HashType, nil::crypto3::hashes::keccak_1600<256>>::value){
+                    return "keccak\n";
+                } else {
                     //std::cout << "Poseidon" << std::endl
                     std::stringstream out;
                     out << "{\"field\": \"" <<  hashed_data <<  "\"}";
                     return out.str();
-                } else if constexpr(std::is_same<HashType, nil::crypto3::hashes::keccak_1600<256>>::value){
-                    return "keccak\n";
                 }
                 BOOST_ASSERT_MSG(false, "unsupported merkle hash type");
                 return "unsupported merkle hash type";
@@ -624,7 +624,7 @@ namespace nil {
                 std::cout << "Use lookups = " << use_lookups << std::endl;
                 transpiler_replacements reps;
 
-                auto fri_params = commitment_scheme.get_fri_params();
+                auto fri_params = commitment_scheme.get_commitment_params();
                 std::size_t batches_num = use_lookups?5:4;
                 auto lambda = PlaceholderParams::commitment_scheme_type::fri_type::lambda;
 

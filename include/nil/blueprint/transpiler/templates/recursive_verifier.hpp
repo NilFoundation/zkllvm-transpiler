@@ -134,16 +134,14 @@ struct transcript_state_type{
 };
 
 void transcript(transcript_state_type &tr_state, pallas::base_field_type::value_type value) {
-    tr_state.state[tr_state.cur] = value;
-    if(tr_state.cur == 2){
+    if(tr_state.cur == 3){
         tr_state.state[0] = __builtin_assigner_poseidon_pallas_base({tr_state.state[0],tr_state.state[1],tr_state.state[2]})[2];
         tr_state.state[1] = pallas::base_field_type::value_type(0);
         tr_state.state[2] = pallas::base_field_type::value_type(0);
         tr_state.cur = 1;
-    } else{
-        tr_state.state[tr_state.cur] = value;
-        tr_state.cur++;
     }
+	tr_state.state[tr_state.cur] = value;
+	tr_state.cur++;
 }
 
 pallas::base_field_type::value_type transcript_challenge(transcript_state_type &tr_state) {
@@ -333,7 +331,7 @@ typename pallas::base_field_type::value_type
 
     return __builtin_assigner_gate_arg_verifier(
         selectors.data(),
-        (int*)gates_sizes.data(),
+        (int*)&gates_sizes,
         gates_amount,
         constraints.data(),
         constraints_amount,
