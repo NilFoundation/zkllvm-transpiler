@@ -663,7 +663,7 @@ namespace nil {
 
                 std::size_t rows_amount = common_data.rows_amount;
                 std::size_t quotient_degree = std::max(
-                    (permutation_size + 1) * (common_data.rows_amount -1 ),
+                    (permutation_size + 2) * (common_data.rows_amount -1 ),
                     (lookup_degree + 1) * (common_data.rows_amount -1 )
                 );
 
