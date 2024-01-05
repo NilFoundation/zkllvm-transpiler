@@ -62,6 +62,7 @@ namespace nil {
             using term_type = typename constraint_system_type::term_type;
             using binary_operation_type = typename constraint_system_type::binary_operation_type;
             using pow_operation_type = typename constraint_system_type::pow_operation_type;
+            using assignment_table_type = typename PlaceholderParams::assignment_table_type;
 
             // TODO: Move logic to utils.hpp. It's similar to EVM verifier generator
             static std::string zero_indices(columns_rotations_type col_rotations){
@@ -117,9 +118,8 @@ namespace nil {
                     out << hashed_data;
                     return generate_field_array2_from_64_hex_string(out.str());
                 } else if constexpr(std::is_same<HashType, nil::crypto3::hashes::keccak_1600<256>>::value){
-                    return "keccak\n";
+                    return "{\"field\": \"" <<  hashed_data <<  "\"}";
                 } else {
-                    //std::cout << "Poseidon" << std::endl
                     std::stringstream out;
                     out << "{\"field\": \"" <<  hashed_data <<  "\"}";
                     return out.str();
@@ -212,7 +212,6 @@ namespace nil {
                 std::size_t sum = 0;
                 std::size_t poly_num = 0;
                 for(const auto& [k, v]: batch_info){
-                    std::cout << "Batch " << k << " polynomials num = " << v << std::endl;
                     for(std::size_t i = 0; i < v; i++){
                         poly_num++;
                         BOOST_ASSERT(eval_proof.z.get_poly_points_number(k, i) != 0);
@@ -223,10 +222,7 @@ namespace nil {
                             sum++;
                         }
                     }
-                    std::cout << "Sum = " << sum << std::endl;
                 }
-                std::cout << "Polynomials num = "<< poly_num << std::endl;
-                std::cout << "Evaluations num = "<< sum << std::endl;
                 out << std::endl << "\t\t]}," << std::endl;
                 out << "\t\t{\"array\": [" << std::endl;
                 for( std::size_t i = 0; i < eval_proof.fri_proof.fri_roots.size(); i++){
@@ -250,7 +246,6 @@ namespace nil {
                         }
                     }
                 }
-                std::cout << "Initial points values = " << cur++ << std::endl;
                 out << std::endl << "\t\t]}," << std::endl;
                 out << "\t\t{\"array\": [" << std::endl;
                 cur = 0;
@@ -265,13 +260,10 @@ namespace nil {
                         cur++;
                     }
                 }
-                std::cout << "Round proofs values num = " << cur << std::endl;
                 out << std::endl << "\t\t]}," << std::endl;
 
-                std::cout << "Print initial merkle proofs for FRI" << std::endl;
                 out << "\t\t{\"array\": [" << std::endl;
                 cur = 0;
-                std::cout << "Print merkle proof" << std::endl;
                 for( std::size_t i = 0; i < eval_proof.fri_proof.query_proofs.size(); i++){
                     for( const auto &[j, initial_proof]: eval_proof.fri_proof.query_proofs[i].initial_proof){
                         for( std::size_t k = 0; k < initial_proof.p.path().size(); k++){
@@ -299,8 +291,6 @@ namespace nil {
                 }
                 out << std::endl << "\t\t]}," << std::endl;
 
-
-                std::cout << "Print round merkle proofs for FRI" << std::endl;
                 out << "\t\t{\"array\": [" << std::endl;
                 cur = 0;
                 for( std::size_t i = 0; i < eval_proof.fri_proof.query_proofs.size(); i++){
@@ -331,7 +321,6 @@ namespace nil {
                 }
                 out << std::endl << "\t\t]}," << std::endl;
 
-                std::cout << "Print final polynomial" << std::endl;
                 cur = 0;
                 out << "\t\t{\"array\": [" << std::endl;
                 for( std::size_t i = 0; i < eval_proof.fri_proof.final_polynomial.size(); i++){
@@ -347,13 +336,37 @@ namespace nil {
             }
 
             static inline std::string generate_input(
-                std::vector<typename field_type::value_type> public_input,
                 const verification_key_type &vk,
+                const typename assignment_table_type::public_input_container_type &public_inputs,
                 const proof_type &proof,
                 const std::array<std::size_t, arithmetization_params::public_input_columns> public_input_sizes
             ){
                 std::stringstream out;
                 out << "[" << std::endl;
+
+                out << "\t{\"array\":[" << std::endl;
+                std::size_t cur = 0;
+                for(std::size_t i = 0; i < arithmetization_params::public_input_columns; i++){
+                    std::size_t max_non_zero = 0;
+                    for(std::size_t j = 0; j < public_inputs[i].size(); j++){
+                        if( public_inputs[i][j] != 0 ) max_non_zero = j;
+                    }
+                    if( max_non_zero > public_input_sizes[i] ) {
+                        std::cout << "Public input size is larger than reserved. Real size = " << max_non_zero << " reserved = " << public_input_sizes[i] << std::endl;
+                        exit(1);
+                    }
+                    BOOST_ASSERT(max_non_zero <= public_input_sizes[i]);
+                    for(std::size_t j = 0; j < public_input_sizes[i]; j++){
+                        if(cur != 0) out << "," << std::endl;
+                        if( j >= public_inputs[i].size() )
+                            out << "\t\t{\"field\": \"" << typename field_type::value_type(0) << "\"}";
+                        else
+                            out << "\t\t{\"field\": \"" << public_inputs[i][j] << "\"}";
+                        cur++;
+                    }
+                }
+                out << std::endl << "\t]}," << std::endl;
+                std::cout << "Public input:  " << out.str() << std::endl;
 
                 out << "\t{\"array\":[" << std::endl;
                 out << "\t\t" << generate_hash<typename PlaceholderParams::transcript_hash_type>(
@@ -594,7 +607,6 @@ namespace nil {
                     bool found = false;
                     for(const auto &unique_point:unique_points){
                         if(points[i] == unique_point){
-                            std::cout << "Point " << i << "=>" << unique_point << " => " << j << std::endl;
                             found = true;
                             points_ids.push_back(j);
                             break;
@@ -605,11 +617,9 @@ namespace nil {
                 }
 
                 for( const auto &p: unique_points){
-                    std::cout << "Point " << p << std::endl;
                     result.push_back(split_point_string(p));
                 }
 
-                std::cout << unique_points.size() << " unique points" << std::endl;
                 return std::make_tuple(result, points_ids, singles);
             }
 
@@ -620,10 +630,9 @@ namespace nil {
                 std::size_t permutation_size,
                 const std::array<std::size_t, arithmetization_params::public_input_columns> public_input_sizes
             ){
-                std::cout << "Permutation_size = " << permutation_size << std::endl;
                 std::string result = nil::blueprint::recursive_verifier_template;
                 bool use_lookups = constraint_system.lookup_gates().size() > 0;
-                std::cout << "Use lookups = " << use_lookups << std::endl;
+                transpiler_replacements lookup_reps;
                 transpiler_replacements reps;
 
                 auto fri_params = commitment_scheme.get_commitment_params();
@@ -631,11 +640,9 @@ namespace nil {
                 auto lambda = PlaceholderParams::commitment_scheme_type::fri_type::lambda;
 
                 std::size_t round_proof_layers_num = 0;
-                std::cout << "Log extended domain = " << log2(fri_params.D[0]->m) << std::endl;
                 for(std::size_t i = 0; i < fri_params.r; i++ ){
                     round_proof_layers_num += log2(fri_params.D[i]->m) -1;
                 }
-
 
                 std::size_t lookup_degree = 0;
                 degree_visitor_type degree_visitor;
@@ -646,7 +653,6 @@ namespace nil {
                             for(std::size_t k = 0; k < constraint_system.lookup_gates()[i].constraints[j].lookup_input.size(); k++){
                                 degree = std::max(degree, std::size_t(degree_visitor.compute_max_degree(constraint_system.lookup_gates()[i].constraints[j].lookup_input[k])));
                             }
-                            std::cout << "Max_degree = " << degree << std::endl;
                             lookup_degree += (degree + 1);
                         }
                     }
@@ -654,7 +660,6 @@ namespace nil {
                         lookup_degree += 3 * constraint_system.lookup_tables()[i].lookup_options.size();
                     }
                 }
-                std::cout << "Lookup degree = " << lookup_degree << std::endl;
 
                 std::size_t rows_amount = common_data.rows_amount;
                 std::size_t quotient_degree = std::max(
@@ -662,21 +667,11 @@ namespace nil {
                     (lookup_degree + 1) * (common_data.rows_amount -1 )
                 );
 
-                std::cout << "Permutation side = " << (permutation_size + 1) * (common_data.rows_amount -1 ) << std::endl;
-                std::cout << "Lookup side = " << (lookup_degree + 1) * (common_data.rows_amount -1 ) << std::endl;
-                std::cout << "Quotient degree = " << quotient_degree - 1 << std::endl;
                 std::size_t quotient_polys = (quotient_degree % rows_amount != 0)? (quotient_degree / rows_amount + 1): (quotient_degree / rows_amount);
-                std::cout << "Quotient polys = " << quotient_polys << std::endl;
 
                 std::size_t poly_num = 2 * permutation_size + 2 + (use_lookups?2:1)
                     + arithmetization_params::total_columns
                     + constraint_system.sorted_lookup_columns_number() + quotient_polys;
-                std::cout << "FIXED_VALUES_BATCH poly num = " << 2 * permutation_size + 2 + arithmetization_params::constant_columns + arithmetization_params::selector_columns << std::endl;
-                std::cout << "VARIABLE_VALUES_BATCH poly num = " << arithmetization_params::witness_columns + arithmetization_params::public_input_columns << std::endl;
-                std::cout << "PERMUTATION_BATCH poly num = " << (use_lookups?2:1) << std::endl;
-                std::cout << "QUOTIENT_BATCH poly num = " << quotient_polys << std::endl;
-                std::cout << "LOOKUP_BATCH poly num = " << constraint_system.sorted_lookup_columns_number() << std::endl;
-                std::cout << "Poly num = " << poly_num << std::endl;
 
                 std::size_t points_num = 4 * permutation_size + 6;
                 std::size_t table_values_num = 0;
@@ -684,20 +679,15 @@ namespace nil {
                     points_num += common_data.columns_rotations[i + arithmetization_params::witness_columns + arithmetization_params::public_input_columns].size() + 1;
                     table_values_num += common_data.columns_rotations[i + arithmetization_params::witness_columns + arithmetization_params::public_input_columns].size() + 1;
                 }
-                std::cout << "Fixed values points num = " << points_num << std::endl;
                 for(std::size_t i = 0; i < arithmetization_params::witness_columns + arithmetization_params::public_input_columns; i++){
                     points_num += common_data.columns_rotations[i].size();
                     table_values_num += common_data.columns_rotations[i].size();
                 }
-                std::cout << "Variable values points num = " << points_num << std::endl;
                 points_num += use_lookups? 4 : 2;
-                std::cout << "Permutation polys points num = " << points_num << std::endl;
                 points_num += quotient_polys;
-                std::cout << "Quotient polys points num = " << points_num << std::endl;
 
                 if( use_lookups ) {
                     points_num += constraint_system.sorted_lookup_columns_number() * 3;
-                    std::cout << "Lookup polys points num = " << points_num << std::endl;
                 }
 
 
@@ -763,6 +753,7 @@ namespace nil {
                         }
                     }
                 }
+                std::cout << "Printing" << std::endl;
 
                 std::stringstream lookup_shifted_options_list;
                 cur = 0;
@@ -849,9 +840,11 @@ namespace nil {
                 }
 
                 std::string public_input_sizes_str = "";
+                std::size_t full_public_input_size = 0;
                 for(std::size_t i = 0; i < public_input_sizes.size(); i++){
                     if(i != 0) public_input_sizes_str += ", ";
                     public_input_sizes_str += to_string(public_input_sizes[i]);
+                    full_public_input_size += public_input_sizes[i];
                 }
 
                 std::size_t fixed_values_size = permutation_size * 2 + 2 + arithmetization_params::constant_columns + arithmetization_params::selector_columns;
@@ -860,6 +853,10 @@ namespace nil {
                     to_string(use_lookups?2:1) + ", " + to_string(quotient_polys);
                 if(use_lookups) batches_size_list += ", " + to_string(constraint_system.sorted_lookup_columns_number());
 
+                lookup_reps["$LOOKUP_VARS$"] = use_lookups?lookup_vars:"";
+                lookup_reps["$LOOKUP_EXPRESSIONS$"] = use_lookups?lookup_expressions:"";
+                lookup_reps["$LOOKUP_CODE$"] = use_lookups?lookup_code:"";
+                result = replace_all(result, lookup_reps);
 
                 reps["$USE_LOOKUPS_DEFINE$"] = use_lookups?"#define __USE_LOOKUPS__ 1\n":"";
                 reps["$USE_LOOKUPS$"] = use_lookups? "true" : "false";
@@ -927,6 +924,7 @@ namespace nil {
                 reps["$LOOKUP_SORTED_START$"] = to_string(4*permutation_size + 6 + table_values_num + (use_lookups?4:2) + quotient_polys);
                 reps["$BATCHES_AMOUNT_LIST$"] = batches_size_list;
                 reps["$PUBLIC_INPUT_SIZES$"] = public_input_sizes_str;
+                reps["$FULL_PUBLIC_INPUT_SIZE$"] = to_string(full_public_input_size);
 
                 result = replace_all(result, reps);
                 return result;
