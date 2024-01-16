@@ -370,7 +370,7 @@ namespace nil {
 
                 out << "\t{\"array\":[" << std::endl;
                 out << "\t\t" << generate_hash<typename PlaceholderParams::transcript_hash_type>(
-                    vk.constraint_system_hash
+                    vk.constraint_system_with_params_hash
                 ) << "," << std::endl;
                 out << "\t\t" << generate_hash<typename PlaceholderParams::transcript_hash_type>(
                     vk.fixed_values_commitment
