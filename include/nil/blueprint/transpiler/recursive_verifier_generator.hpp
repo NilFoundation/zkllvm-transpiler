@@ -351,8 +351,8 @@ namespace nil {
                     for(std::size_t j = 0; j < public_inputs[i].size(); j++){
                         if( public_inputs[i][j] != 0 ) max_non_zero = j;
                     }
-                    if( max_non_zero > public_input_sizes[i] ) {
-                        std::cout << "Public input size is larger than reserved. Real size = " << max_non_zero << " reserved = " << public_input_sizes[i] << std::endl;
+                    if( max_non_zero + 1 > public_input_sizes[i] ) {
+                        std::cout << "Public input size is larger than reserved. Real size = " << max_non_zero  + 1 << " reserved = " << public_input_sizes[i] << std::endl;
                         exit(1);
                     }
                     BOOST_ASSERT(max_non_zero <= public_input_sizes[i]);
