@@ -34,6 +34,7 @@ constexpr std::size_t input_size_shifted_lookup_table_selectors = lookup_table_a
 constexpr std::size_t input_size_shifted_lookup_table_lookup_options = lookup_table_columns_amount;
 
 constexpr std::size_t input_size_sorted = m_parameter * 3 - 1;
+$LPC_POLY_IDS_CONSTANT_ARRAYS$
 #endif
         )";
 
@@ -214,17 +215,17 @@ struct placeholder_proof_type{
     pallas::base_field_type::value_type challenge;
     std::array<pallas::base_field_type::value_type, points_num> z;
     std::array<pallas::base_field_type::value_type, fri_roots_num> fri_roots;
-    std::array<pallas::base_field_type::value_type, initial_proof_points_num> initial_proof_values;
-    std::array<pallas::base_field_type::value_type, round_proof_points_num> round_proof_values;
-    std::array<int, initial_merkle_proofs_position_num> initial_proof_positions;
-    std::array<pallas::base_field_type::value_type, initial_merkle_proofs_hash_num> initial_proof_hashes;
-    std::array<int, round_merkle_proofs_position_num> round_merkle_proof_positions;
-    std::array<pallas::base_field_type::value_type, round_merkle_proofs_hash_num> round_proof_hashes;
+    std::array<std::array<pallas::base_field_type::value_type, initial_proof_points_num>, lambda> initial_proof_values;     // lambda times
+    std::array<pallas::base_field_type::value_type, round_proof_points_num> round_proof_values;                             // lambda times
+    std::array<int, initial_merkle_proofs_position_num> initial_proof_positions;                                            // lambda times
+    std::array<pallas::base_field_type::value_type, initial_merkle_proofs_hash_num> initial_proof_hashes;                   // lambda times
+    std::array<int, round_merkle_proofs_position_num> round_merkle_proof_positions;                                         // lambda times
+    std::array<pallas::base_field_type::value_type, round_merkle_proofs_hash_num> round_proof_hashes;                       // lambda times
     std::array<pallas::base_field_type::value_type, final_polynomial_size> final_polynomial;
 };
 
 struct placeholder_challenges_type{
-    pallas::base_field_type::value_type fri_etha;
+    pallas::base_field_type::value_type eta;
     pallas::base_field_type::value_type perm_beta;
     pallas::base_field_type::value_type perm_gamma;
     pallas::base_field_type::value_type lookup_theta;
@@ -346,7 +347,7 @@ pallas::base_field_type::value_type pow(pallas::base_field_type::value_type x, s
 
 std::array<pallas::base_field_type::value_type, singles_amount> fill_singles(
     pallas::base_field_type::value_type xi,
-    pallas::base_field_type::value_type etha
+    pallas::base_field_type::value_type eta
 ){
     std::array<pallas::base_field_type::value_type, singles_amount> singles;
 $SINGLES_COMPUTATION$;
@@ -369,8 +370,7 @@ placeholder_challenges_type generate_challenges(
     transcript(tr_state, vk[1]);
 
     // LPC additional point
-    challenges.fri_etha = transcript_challenge(tr_state);
-
+    challenges.eta = transcript_challenge(tr_state);
     transcript(tr_state, proof.commitments[0]);
 
     challenges.perm_beta = transcript_challenge(tr_state);
@@ -692,7 +692,105 @@ typedef __attribute__((ext_vector_type(2)))
     __builtin_assigner_exit_check(precomputed_values.F_consolidated == precomputed_values.T_consolidated * precomputed_values.Z_at_xi);
 
     // Commitment scheme
-    std::array<pallas::base_field_type::value_type, singles_amount> singles = fill_singles(challenges.xi, challenges.fri_etha);
+    std::array<pallas::base_field_type::value_type, singles_amount> singles = fill_singles(challenges.xi, challenges.eta);
+    std::array<pallas::base_field_type::value_type, unique_points> U;
+
+$PREPARE_U_AND_V$
+
+    std::array<std::array<typename pallas::base_field_type::value_type, 3>, D0_log> res;
+    std::size_t round_proof_ind = 0;
+    std::size_t initial_proof_ind = 0;
+    std::size_t initial_proof_hash_ind = 0;
+    pallas::base_field_type::value_type interpolant;
+    std::size_t cur_val = 0;
+    std::size_t round_proof_hash_ind = 0;
+
+    for(std::size_t i = 0; i < lambda; i++){
+        __builtin_assigner_fri_cosets(res.data(), D0_log, D0_omega, challenges.fri_x_indices[i]);
+        cur_val = 0;
+
+        pallas::base_field_type::value_type hash_state;
+        for(std::size_t b = 0; b < batches_num; b++){
+            pallas::base_field_type::value_type hash_state(0);
+            if(res[0][2] == pallas::base_field_type::value_type(0)){
+                hash_state = calculate_leaf_hash(proof.initial_proof_values[i], cur_val, batches_amount_list[b] *2);
+            } else if(res[0][2] == pallas::base_field_type::value_type(1)){
+                hash_state = calculate_reversed_leaf_hash(proof.initial_proof_values[i], cur_val, batches_amount_list[b] *2);
+            }
+            cur_val += batches_amount_list[b] *2;
+            for(std::size_t r = i * initial_merkle_proofs_position_num/lambda; r < (i + 1)* initial_merkle_proofs_position_num/lambda ; r++){
+                if(proof.initial_proof_positions[r] == 1){
+                    hash_state = __builtin_assigner_poseidon_pallas_base({0, hash_state, proof.initial_proof_hashes[initial_proof_hash_ind]})[2];
+                } else{
+                    hash_state = __builtin_assigner_poseidon_pallas_base({0, proof.initial_proof_hashes[initial_proof_hash_ind], hash_state})[2];
+                }
+                initial_proof_hash_ind ++;
+            }
+            if(b == 0)
+                __builtin_assigner_exit_check(hash_state == vk[1]);
+            else
+                __builtin_assigner_exit_check(hash_state == proof.commitments[b-1]);
+        }
+
+        std::array<pallas::base_field_type::value_type, 2> y = {0,0};
+        theta_acc = pallas::base_field_type::value_type(1);
+        pallas::base_field_type::value_type Q0;
+        pallas::base_field_type::value_type Q1;
+$LPC_Y_COMPUTATION$
+        std::size_t D = D0_log - 1;
+        pallas::base_field_type::value_type rhash;
+        for(std::size_t j = 0; j < fri_rounds; j++){
+            if(res[j][2] == pallas::base_field_type::value_type(0)){
+                rhash = __builtin_assigner_poseidon_pallas_base({0, y[0], y[1]})[2];
+            } else {
+                rhash = __builtin_assigner_poseidon_pallas_base({0, y[1], y[0]})[2];
+            }
+            for( std::size_t d = 0; d < D; d++){
+                if(proof.round_merkle_proof_positions[round_proof_hash_ind] == 1){
+                    rhash = __builtin_assigner_poseidon_pallas_base({0, rhash, proof.round_proof_hashes[round_proof_hash_ind]})[2];
+                } else {
+                    rhash = __builtin_assigner_poseidon_pallas_base({0, proof.round_proof_hashes[round_proof_hash_ind], rhash})[2];
+                }
+                round_proof_hash_ind++;
+            }
+            __builtin_assigner_exit_check(rhash == proof.fri_roots[j]);
+            D--;
+
+            interpolant = __builtin_assigner_fri_lin_inter(
+                res[j][0],
+                y[0],
+                y[1],
+                challenges.fri_alphas[j]
+            );
+            __builtin_assigner_exit_check(interpolant == proof.round_proof_values[round_proof_ind]);
+            y[0] = proof.round_proof_values[round_proof_ind];
+            y[1] = proof.round_proof_values[round_proof_ind + 1];
+
+            pallas::base_field_type::value_type rhash;
+            round_proof_ind += 2;
+        }
+
+        interpolant = pallas::base_field_type::value_type(0);
+        pallas::base_field_type::value_type x = res[fri_rounds][0];
+        pallas::base_field_type::value_type factor = pallas::base_field_type::value_type(1);
+        for(std::size_t j = 0; j < final_polynomial_size; j++){
+            interpolant = interpolant + proof.final_polynomial[j] * factor;
+            factor = factor * x;
+        }
+        __builtin_assigner_exit_check(interpolant == y[0]);
+
+        interpolant = pallas::base_field_type::value_type(0);
+        x = res[fri_rounds][1];
+        factor = pallas::base_field_type::value_type(1);
+        for(std::size_t j = 0; j < final_polynomial_size; j++){
+            interpolant = interpolant + proof.final_polynomial[j] * factor;
+            factor = factor * x;
+        }
+        __builtin_assigner_exit_check(interpolant == y[1]);
+	}
+    return true;
+
+/*
     std::array<std::array<pallas::base_field_type::value_type, 4>, unique_points> V;
     std::array<std::array<pallas::base_field_type::value_type, 3>, poly_num> U;
     std::array<std::array<pallas::base_field_type::value_type, 3>, unique_points> combined_U;
@@ -705,8 +803,6 @@ typedef __attribute__((ext_vector_type(2)))
         combined_U[u][1] = pallas::base_field_type::value_type(0);
         combined_U[u][2] = pallas::base_field_type::value_type(0);
     }
-
-$PREPARE_U_AND_V$
 
     std::array<std::array<typename pallas::base_field_type::value_type, 3>, D0_log> res;
     std::size_t round_proof_ind = 0;
@@ -816,7 +912,7 @@ $PREPARE_U_AND_V$
             factor = factor * x;
         }
         __builtin_assigner_exit_check(interpolant == y[1]);
-    }
+    }*/
     return true;
 }
 
