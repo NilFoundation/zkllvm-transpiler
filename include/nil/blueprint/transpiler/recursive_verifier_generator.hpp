@@ -65,7 +65,7 @@ namespace nil {
             using assignment_table_type = typename PlaceholderParams::assignment_table_type;
 
             // TODO: Move logic to utils.hpp. It's similar to EVM verifier generator
-            static std::string zero_indices(columns_rotations_type col_rotations){
+            static std::string zero_indices(columns_rotations_type col_rotations, std::size_t permutation_size){
                 std::vector<std::size_t> zero_indices;
                 std::uint16_t fixed_values_points = 0;
                 std::stringstream result;
@@ -90,16 +90,17 @@ namespace nil {
                 for(; i < PlaceholderParams::witness_columns + PlaceholderParams::public_input_columns; i++){
                     zero_indices[i] = sum + zero_indices[i];
                     sum += col_rotations[i].size();
-                    if( i != 0) result << ", ";
-                    result << zero_indices[i];
                 }
 
                 sum = 0;
                 for(; i < PlaceholderParams::total_columns; i++){
                     zero_indices[i] = sum + zero_indices[i];
                     sum += col_rotations[i].size() + 1;
-                    if( i != 0) result << ", ";
-                    result << zero_indices[i];
+                }
+
+                for( i = 0; i < PlaceholderParams::total_columns; i++){
+                    if( i != 0 ) result << ", ";
+                    result << zero_indices[i] + 4 * permutation_size + 6;
                 }
                 return result.str();
             }
@@ -995,36 +996,7 @@ namespace nil {
                     }
                     prepare_U_V_str << "\n";
                 }
-/*              for(std::size_t i = 0; i < unique_points.size(); i++){
-                    prepare_U_V_str << "\tV[" << i << "] = getV"<< unique_points[i].size() << "(";
-                    for(std::size_t j = 0; j < unique_points[i].size(); j++ ){
-                        if(j != 0) prepare_U_V_str << ", ";
-                        prepare_U_V_str << "singles[" << singles[unique_points[i][j]] << "]";
-                    }
-                    prepare_U_V_str << ");" << std::endl << std::endl;
-                }
-                for(std::size_t ind = 0; ind < point_ids.size(); ind++){
-                    std::size_t i = point_ids.size() - 1 - ind;
-                    prepare_U_V_str << "\ttmp = getU"<< unique_points[point_ids[i]].size() << "(";
-                    for(std::size_t j = 0; j < unique_points[point_ids[i]].size(); j++ ){
-                        if(j != 0) prepare_U_V_str << ", ";
-                        prepare_U_V_str << "singles[" << singles[unique_points[point_ids[i]][j]] << "]";
-                    }
-                    for(std::size_t j = 0; j < unique_points[point_ids[i]].size(); j++ ){
-                        prepare_U_V_str << ", ";
-                        if( j == unique_points[point_ids[i]].size() - 1 )
-                            prepare_U_V_str << "proof.z[z_ind]";
-                        else
-                            prepare_U_V_str << "proof.z[z_ind - "<< unique_points[point_ids[i]].size() - j - 1 <<" ]";
-                    }
-                    prepare_U_V_str << ");" << std::endl;
-                    prepare_U_V_str << "\tz_ind = z_ind - " << unique_points[point_ids[i]].size() << ";" << std::endl;
-                    for(std::size_t j = 0; j < unique_points[point_ids[i]].size(); j++ ){
-                        prepare_U_V_str << "\tcombined_U[" << point_ids[i] << "]["  << j << "] = combined_U[" << point_ids[i] << "][" << j << "] + tmp[" << j << "] * theta_acc;" << std::endl;
-                    }
-                    prepare_U_V_str << "\ttheta_acc = theta_acc * challenges.lpc_theta;" << std::endl;
-                }
-*/
+
                 std::stringstream compute_combined_y;
                 for(std::size_t i = 0; i < point_ids.size(); i++){
                     /*y[0] = y[0] * challenges.lpc_theta;
@@ -1094,7 +1066,7 @@ namespace nil {
                 reps["$FINAL_POLYNOMIAL_SIZE$"] = to_string(std::pow(2, std::log2(fri_params.max_degree + 1) - fri_params.r + 1) - 2);
                 reps["$LAMBDA$"] = to_string(lambda);
                 reps["$PERMUTATION_SIZE$"] = to_string(permutation_size);
-                reps["$ZERO_INDICES$"] = zero_indices(common_data.columns_rotations);
+                reps["$ZERO_INDICES$"] = zero_indices(common_data.columns_rotations, permutation_size);
                 reps["$TOTAL_COLUMNS$"] = to_string(arithmetization_params::total_columns);
                 reps["$ROWS_LOG$"] = to_string(log2(rows_amount));
                 reps["$ROWS_AMOUNT$"] = to_string(rows_amount);

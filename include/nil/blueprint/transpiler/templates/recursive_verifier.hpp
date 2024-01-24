@@ -620,15 +620,20 @@ typedef __attribute__((ext_vector_type(2)))
     precomputed_values_type precomputed_values;
     std::tie(precomputed_values.l0, precomputed_values.Z_at_xi) = xi_polys(challenges.xi);
 
+    //Check public input
+    std::size_t cur = 0;
+    for( std::size_t i = 0; i < public_input_amount; i++){
+        pallas::base_field_type::value_type Omega(1);
+        pallas::base_field_type::value_type result(0);
+        for( std::size_t j = 0; j < public_input_sizes[i]; j++){
+            result += public_input[cur] * Omega / (challenges.xi - Omega);
+            Omega *= omega;
+            cur++;
+        }
+        __builtin_assigner_exit_check(rows_amount * proof.z[zero_indices[witness_amount + i]] == precomputed_values.Z_at_xi * result);
+    }
+
     std::array<pallas::base_field_type::value_type, 8> F;// = {0,0,0,0,0,0,0,0};
-    F[0] = pallas::base_field_type::value_type(0);
-    F[1] = pallas::base_field_type::value_type(0);
-    F[2] = pallas::base_field_type::value_type(0);
-    F[3] = pallas::base_field_type::value_type(0);
-    F[4] = pallas::base_field_type::value_type(0);
-    F[5] = pallas::base_field_type::value_type(0);
-    F[6] = pallas::base_field_type::value_type(0);
-    F[7] = pallas::base_field_type::value_type(0);
 
     // Call permutation argument
     placeholder_permutation_argument_input_type perm_arg_input;
@@ -636,7 +641,7 @@ typedef __attribute__((ext_vector_type(2)))
     perm_arg_input.thetas[1] = challenges.perm_gamma;
 
     for( std::size_t i = 0; i < permutation_size; i++ ){
-        perm_arg_input.xi_values[i] = proof.z[4*permutation_size + 6 + zero_indices[i]];
+        perm_arg_input.xi_values[i] = proof.z[zero_indices[i]];
         perm_arg_input.id_perm[i] = proof.z[2*i];
         perm_arg_input.sigma_perm[i] = proof.z[2*permutation_size + 2*i];
     }
@@ -666,7 +671,7 @@ typedef __attribute__((ext_vector_type(2)))
         constraints = calculate_constraints(proof.z);
 
         for( std::size_t i = 0; i < gates_amount; i++ ){
-            selectors[i] = proof.z[4 * permutation_size + 6 + zero_indices[witness_amount + public_input_amount + constant_amount + gates_selector_indices[i]]];
+            selectors[i] = proof.z[zero_indices[witness_amount + public_input_amount + constant_amount + gates_selector_indices[i]]];
         }
 
         F[7] = gate_argument_verifier(
