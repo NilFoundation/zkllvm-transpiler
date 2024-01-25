@@ -42,6 +42,7 @@
 #include <nil/crypto3/zk/math/expression_evaluator.hpp>
 
 #include<nil/blueprint/transpiler/templates/recursive_verifier.hpp>
+#include<nil/blueprint/transpiler/util.hpp>
 
 namespace nil {
     namespace blueprint {
@@ -516,161 +517,6 @@ namespace nil {
                 return result;
             }
 
-            // Tuple of singles, poly ids with singles>
-            static std::tuple<std::vector<std::size_t>, std::vector<std::string>, std::map<std::string, std::size_t>, std::vector<std::vector<std::size_t>>>
-            calculate_unique_points(
-                const common_data_type &common_data,
-                std::size_t permutation_size,
-                bool use_lookups,
-                std::size_t quotient_size,
-                std::size_t sorted_size
-            ){
-                std::vector<std::size_t> z_points_indices;
-                std::vector<std::string> singles;
-                std::map<std::string, std::size_t> singles_map;
-                std::vector<std::vector<std::size_t>> poly_ids;
-
-                singles.push_back(rot_string(0));
-                singles_map[rot_string(0)] = singles_map.size();
-
-                singles.push_back("eta");
-                singles_map["eta"] = singles_map.size();
-                poly_ids.resize(singles.size());
-
-                // Sigma and permutation polys
-                std::size_t count = 0;
-                for( std::size_t i = 0; i < permutation_size; i++){
-                    poly_ids[singles_map[rot_string(0)]].push_back(count);
-                    poly_ids[singles_map["eta"]].push_back(count);
-                    z_points_indices.push_back(singles_map[rot_string(0)]);
-                    z_points_indices.push_back(singles_map["eta"]);
-                    poly_ids[singles_map["eta"]].push_back(count+1);
-                    poly_ids[singles_map[rot_string(0)]].push_back(count+1);
-                    z_points_indices.push_back(singles_map[rot_string(0)]);
-                    z_points_indices.push_back(singles_map["eta"]);
-                    count += 2;
-                }
-
-                // Special selectors
-                singles.push_back(rot_string(1));
-                singles_map[rot_string(1)] = singles_map.size();
-                poly_ids.resize(singles.size());
-
-                poly_ids[singles_map["eta"]].push_back(count);
-                poly_ids[singles_map[rot_string(0)]].push_back(count);
-                poly_ids[singles_map[rot_string(1)]].push_back(count);
-                z_points_indices.push_back(singles_map[rot_string(0)]);
-                z_points_indices.push_back(singles_map[rot_string(1)]);
-                z_points_indices.push_back(singles_map["eta"]);
-                count++;
-                poly_ids[singles_map["eta"]].push_back(count);
-                poly_ids[singles_map[rot_string(0)]].push_back(count);
-                poly_ids[singles_map[rot_string(1)]].push_back(count);
-                z_points_indices.push_back(singles_map[rot_string(0)]);
-                z_points_indices.push_back(singles_map[rot_string(1)]);
-                z_points_indices.push_back(singles_map["eta"]);
-                count++;
-
-
-                for(std::size_t i = 0; i < PlaceholderParams::constant_columns; i++){
-                    std::stringstream str;
-                    for(auto j:common_data.columns_rotations[i + PlaceholderParams::witness_columns + PlaceholderParams::public_input_columns]){
-                        if(singles_map.find(rot_string(j)) == singles_map.end()){
-                            singles_map[rot_string(j)] = singles_map.size();
-                            singles.push_back(rot_string(j));
-                            poly_ids.resize(singles.size());
-                        }
-                        poly_ids[singles_map[rot_string(j)]].push_back(count);
-                        z_points_indices.push_back(singles_map[rot_string(j)]);
-                    }
-                    poly_ids[singles_map["eta"]].push_back(count);
-                    z_points_indices.push_back(singles_map["eta"]);
-                    count++;
-                }
-
-                for(std::size_t i = 0; i < PlaceholderParams::selector_columns; i++){
-                    std::stringstream str;
-                    for(auto j:common_data.columns_rotations[i + PlaceholderParams::witness_columns + PlaceholderParams::public_input_columns + PlaceholderParams::constant_columns]){
-                        if(singles_map.find(rot_string(j)) == singles_map.end()){
-                            singles_map[rot_string(j)] = singles_map.size();
-                            singles.push_back(rot_string(j));
-                            poly_ids.resize(singles.size());
-                        }
-                        poly_ids[singles_map[rot_string(j)]].push_back(count);
-                        z_points_indices.push_back(singles_map[rot_string(j)]);
-                    }
-                    poly_ids[singles_map["eta"]].push_back(count);
-                    z_points_indices.push_back(singles_map["eta"]);
-                    count++;
-                }
-
-                for(std::size_t i = 0; i < PlaceholderParams::witness_columns; i++){
-                    std::stringstream str;
-                    for(auto j:common_data.columns_rotations[i]){
-                        if(singles_map.find(rot_string(j)) == singles_map.end()){
-                            singles_map[rot_string(j)] = singles_map.size();
-                            singles.push_back(rot_string(j));
-                            poly_ids.resize(singles.size());
-                        }
-                        poly_ids[singles_map[rot_string(j)]].push_back(count);
-                        z_points_indices.push_back(singles_map[rot_string(j)]);
-                    }
-                    count++;
-                }
-
-                for(std::size_t i = 0; i < PlaceholderParams::public_input_columns; i++){
-                    std::stringstream str;
-                    for(auto j:common_data.columns_rotations[i + PlaceholderParams::witness_columns]){
-                        if(singles_map.find(rot_string(j)) == singles_map.end()){
-                            singles_map[rot_string(j)] = singles_map.size();
-                            singles.push_back(rot_string(j));
-                            poly_ids.resize(singles.size());
-                        }
-                        poly_ids[singles_map[rot_string(j)]].push_back(count);
-                        z_points_indices.push_back(singles_map[rot_string(j)]);
-                    }
-                    count++;
-                }
-
-                // Permutation argument
-                poly_ids[singles_map[rot_string(0)]].push_back(count);
-                poly_ids[singles_map[rot_string(1)]].push_back(count);
-                z_points_indices.push_back(singles_map[rot_string(0)]);
-                z_points_indices.push_back(singles_map[rot_string(1)]);
-                count++;
-
-                // Lookup permutation
-                if(use_lookups){
-                    poly_ids[singles_map[rot_string(0)]].push_back(count);
-                    poly_ids[singles_map[rot_string(1)]].push_back(count);
-                    z_points_indices.push_back(singles_map[rot_string(0)]);
-                    z_points_indices.push_back(singles_map[rot_string(1)]);
-                    count++;
-                }
-                // Quotient
-                for(std::size_t i = 0; i < quotient_size; i++){
-                    poly_ids[singles_map[rot_string(0)]].push_back(count);
-                    z_points_indices.push_back(singles_map[rot_string(0)]);
-                    count++;
-                }
-                // Lookup batch
-                if(use_lookups){
-                    singles_map[rot_string(common_data.usable_rows_amount)] = singles.size();
-                    singles.push_back(rot_string(common_data.usable_rows_amount));
-                    for( std::size_t i = 0; i < sorted_size; i++ ){
-                        poly_ids[singles_map[rot_string(0)]].push_back(count);
-                        z_points_indices.push_back(singles_map[rot_string(0)]);
-                        poly_ids[singles_map[rot_string(1)]].push_back(count);
-                        z_points_indices.push_back(singles_map[rot_string(1)]);
-                        poly_ids[singles_map[rot_string(common_data.usable_rows_amount)]].push_back(count);
-                        z_points_indices.push_back(singles_map[rot_string(common_data.usable_rows_amount)]);
-                        count++;
-                    }
-                }
-
-                return std::make_tuple(z_points_indices, singles, singles_map, poly_ids);
-            }
-
             static inline std::tuple<
                 std::vector<std::vector<std::string>>, std::vector<std::size_t>, std::map<std::string, std::size_t>
             > calculate_unique_point_sets(
@@ -803,22 +649,7 @@ namespace nil {
                     round_proof_layers_num += log2(fri_params.D[i]->m) -1;
                 }
 
-                std::size_t lookup_degree = 0;
-                degree_visitor_type degree_visitor;
-                if(use_lookups){
-                    for(std::size_t i = 0; i < constraint_system.lookup_gates().size(); i++){
-                        for(std::size_t j = 0; j < constraint_system.lookup_gates()[i].constraints.size(); j++){
-                            std::size_t degree = 0;
-                            for(std::size_t k = 0; k < constraint_system.lookup_gates()[i].constraints[j].lookup_input.size(); k++){
-                                degree = std::max(degree, std::size_t(degree_visitor.compute_max_degree(constraint_system.lookup_gates()[i].constraints[j].lookup_input[k])));
-                            }
-                            lookup_degree += (degree + 1);
-                        }
-                    }
-                    for(std::size_t i = 0; i < constraint_system.lookup_tables().size(); i++){
-                        lookup_degree += 3 * constraint_system.lookup_tables()[i].lookup_options.size();
-                    }
-                }
+                std::size_t lookup_degree = constraint_system.lookup_poly_degree_bound();
 
                 std::size_t rows_amount = common_data.rows_amount;
                 std::size_t quotient_degree = std::max(
@@ -934,8 +765,10 @@ namespace nil {
                     cur++;
                 }
 
-                auto [z_points_indices, singles_strs, singles_map, poly_ids] = calculate_unique_points(
-                    common_data, permutation_size, use_lookups, quotient_polys, use_lookups?constraint_system.sorted_lookup_columns_number():0
+                auto [z_points_indices, singles_strs, singles_map, poly_ids] = calculate_unique_points<PlaceholderParams, common_data_type>(
+                    common_data, permutation_size, use_lookups, quotient_polys,
+                    use_lookups?constraint_system.sorted_lookup_columns_number():0,
+                    "recursive" // Generator mode
                 );
                 std::cout << "Singles" << std::endl;
                 for( const auto &single: singles_strs){
