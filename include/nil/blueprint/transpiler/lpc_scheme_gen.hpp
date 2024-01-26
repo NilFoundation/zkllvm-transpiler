@@ -44,16 +44,6 @@ namespace nil {
             PlaceholderParams
         >::preprocessed_data_type::common_data_type;
 
-        std::string rot_string (int j){
-            if(j == 0) return "xi"; else
-            if(j == 1 ) return "mulmod(xi, omega, modulus)"; else
-            if(j == -1) return "mulmod(xi, inversed_omega, modulus)"; else
-            if(j > 0) return "mulmod(xi, field.pow_small(omega, " + to_string(j) + ", modulus), modulus)"; else
-            if(j < 0) return "mulmod(xi, field.pow_small(inversed_omega, " + to_string(-j) + ", modulus), modulus)";
-            return "";
-        }
-
-
         template<typename PlaceholderParams>
         void commitment_scheme_replaces(
             transpiler_replacements& replacements,
@@ -72,17 +62,14 @@ namespace nil {
                 "evm" // Generator mode
             );
 
-/*          std::stringstream points_ids;
-            for(std::size_t i = 0; i < points.size(); i++){
-                std::size_t j = 0;
-                for(const auto &unique_point:unique_points){
-                    if(points[i] == unique_point){
-                        points_ids << std::hex << std::setw(2) << std::setfill('0') << j;
-                        break;
-                    }
-                    j++;
-                }
-            }*/
+            for( std::size_t i = 0; i < z_points_indices.size(); i ++){
+                std::cout << "[" << i <<"]" << "=>" << z_points_indices[i] << " ";
+            }
+            std::cout << std::endl;
+
+            for( std::size_t i = 0; i < poly_ids.size(); i++ ){
+                std::cout << "point " << i << " has " << poly_ids[i].size() <<" polys." << std::endl;
+            }
 
             std::stringstream points_initializer;
             std::size_t i = 0;

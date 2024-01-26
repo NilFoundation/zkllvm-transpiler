@@ -260,7 +260,10 @@ unchecked {
         {
             uint256 offset;
 
-            if (challenge!= transcript.get_field_challenge(tr_state, modulus)) return false;
+            if (challenge!= transcript.get_field_challenge(tr_state, modulus)) {
+                console.log("Wrong challenge");
+                return false;
+            }
 
             for(uint8 i = 0; i < batches_num;){
                 transcript.update_transcript_b32(tr_state, bytes32(commitments[i]));
@@ -346,6 +349,9 @@ unchecked {
                 state.U[p] = mulmod(state.U[p], state.theta, modulus);
                 state.U[p] = addmod(state.U[p], basic_marshalling.get_uint256_be(blob, off), modulus);
                 off -= 0x20;
+                i++;
+            }
+            for(uint256 i = 0; i < state.unique_eval_points.length;){
                 i++;
             }
         }
