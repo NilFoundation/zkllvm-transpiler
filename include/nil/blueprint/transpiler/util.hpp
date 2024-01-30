@@ -132,7 +132,6 @@ namespace nil {
                 z_points_indices.push_back(singles_map["eta"]);
                 count += 2;
             }
-            std::cout << "Permutations are done!" << std::endl;
 
             // Special selectors
             singles.push_back(rot_string(1, rows_amount, mode));
@@ -153,7 +152,6 @@ namespace nil {
             z_points_indices.push_back(singles_map[rot_string(1, rows_amount, mode)]);
             z_points_indices.push_back(singles_map["eta"]);
             count++;
-            std::cout << "Special selectors are done!" << std::endl;
 
             for(std::size_t i = 0; i < PlaceholderParams::constant_columns; i++){
                 std::stringstream str;
@@ -170,7 +168,6 @@ namespace nil {
                 z_points_indices.push_back(singles_map["eta"]);
                 count++;
             }
-            std::cout << "Constants are done!" << std::endl;
 
             for(std::size_t i = 0; i < PlaceholderParams::selector_columns; i++){
                 std::stringstream str;
@@ -187,7 +184,6 @@ namespace nil {
                 z_points_indices.push_back(singles_map["eta"]);
                 count++;
             }
-            std::cout << "Selectors are done!" << std::endl;
 
             for(std::size_t i = 0; i < PlaceholderParams::witness_columns; i++){
                 std::stringstream str;
@@ -202,7 +198,6 @@ namespace nil {
                 }
                 count++;
             }
-            std::cout << "Witnesses are done!" << std::endl;
 
             for(std::size_t i = 0; i < PlaceholderParams::public_input_columns; i++){
                 std::stringstream str;
@@ -217,7 +212,6 @@ namespace nil {
                 }
                 count++;
             }
-            std::cout << "Public inputs are done!" << std::endl;
 
             // Permutation argument
             poly_ids[singles_map[rot_string(0, rows_amount, mode)]].push_back(count);
@@ -225,7 +219,6 @@ namespace nil {
             z_points_indices.push_back(singles_map[rot_string(0, rows_amount, mode)]);
             z_points_indices.push_back(singles_map[rot_string(1, rows_amount, mode)]);
             count++;
-            std::cout << "Permutation polynomials are done!" << std::endl;
 
             // Lookup permutation
             if(use_lookups){
@@ -234,7 +227,6 @@ namespace nil {
                 z_points_indices.push_back(singles_map[rot_string(0, rows_amount, mode)]);
                 z_points_indices.push_back(singles_map[rot_string(1, rows_amount, mode)]);
                 count++;
-                std::cout << "Lookup permutation polynomials are done!" << std::endl;
             }
             // Quotient
             for(std::size_t i = 0; i < quotient_size; i++){
@@ -242,7 +234,6 @@ namespace nil {
                 z_points_indices.push_back(singles_map[rot_string(0, rows_amount, mode)]);
                 count++;
             }
-            std::cout << "Quotient polynomials are done!" << std::endl;
             // Lookup batch
             if(use_lookups){
                 if(singles_map.find(rot_string(common_data.usable_rows_amount, rows_amount, mode)) == singles_map.end()){
@@ -259,7 +250,6 @@ namespace nil {
                     z_points_indices.push_back(singles_map[rot_string(common_data.usable_rows_amount, rows_amount, mode)]);
                     count++;
                 }
-                std::cout << "Lookup polynomials are done!" << std::endl;
             }
 
             return std::make_tuple(z_points_indices, singles, singles_map, poly_ids);

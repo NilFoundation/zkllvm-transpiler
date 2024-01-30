@@ -6,7 +6,6 @@
 namespace nil {
     namespace blueprint {
         std::string lookup_vars = R"(
-#ifdef __USE_LOOKUPS__
 const size_t lookup_table_amount = $LOOKUP_TABLE_AMOUNT$;
 const size_t lookup_gate_amount = $LOOKUP_GATE_AMOUNT$;
 constexpr std::array<std::size_t, lookup_table_amount> lookup_options_amount_list = {$LOOKUP_OPTIONS_AMOUNT_LIST$};
@@ -35,22 +34,18 @@ constexpr std::size_t input_size_shifted_lookup_table_lookup_options = lookup_ta
 
 constexpr std::size_t input_size_sorted = m_parameter * 3 - 1;
 $LPC_POLY_IDS_CONSTANT_ARRAYS$
-#endif
         )";
 
         std::string lookup_expressions = R"(
-#ifdef __USE_LOOKUPS__
 std::array<pallas::base_field_type::value_type, lookup_expressions_amount> calculate_lookup_expressions(std::array<pallas::base_field_type::value_type, points_num> z){
     std::array<pallas::base_field_type::value_type, lookup_expressions_amount> expressions;
 $LOOKUP_EXPRESSIONS_BODY$
 
     return expressions;
 }
-#endif
         )";
 
         std::string lookup_code = R"(
-#ifdef __USE_LOOKUPS__
     {
         std::array<typename pallas::base_field_type::value_type, input_size_alphas> alphas = challenges.lookup_alphas;
         std::array<typename pallas::base_field_type::value_type, input_size_lookup_gate_selectors> lookup_gate_selectors;
@@ -149,8 +144,23 @@ $LOOKUP_SHIFTED_OPTIONS_LIST$
         F[5] = lookup_argument[2];
         F[6] = lookup_argument[3];
     }
-#endif
         )";
+
+        std::string public_input_check_str = R"(
+    //Check public input
+    std::size_t cur = 0;
+    for( std::size_t i = 0; i < public_input_amount; i++){
+        pallas::base_field_type::value_type Omega(1);
+        pallas::base_field_type::value_type result(0);
+        for( std::size_t j = 0; j < public_input_sizes[i]; j++){
+            result += public_input[cur] * Omega / (challenges.xi - Omega);
+            Omega *= omega;
+            cur++;
+        }
+        __builtin_assigner_exit_check(rows_amount * proof.z[zero_indices[witness_amount + i]] == precomputed_values.Z_at_xi * result);
+    }
+)";
+        std::string public_input_input_str = "\tstd::array<pallas::base_field_type::value_type, full_public_input_size> public_input,\n";
 
         std::string recursive_verifier_template = R"(
 #include <nil/crypto3/hash/algorithm/hash.hpp>
@@ -204,7 +214,6 @@ const pallas::base_field_type::value_type omega = $OMEGA$;
 const size_t fri_rounds = $FRI_ROUNDS$;
 const std::array<int, gates_amount> gates_sizes = {$GATES_SIZES$};
 const size_t unique_points = $UNIQUE_POINTS$;
-const std::array<int, poly_num> point_ids = {$POINTS_IDS$};
 const size_t singles_amount = $SINGLES_AMOUNT$;
 const std::array<std::size_t, batches_num> batches_amount_list = {$BATCHES_AMOUNT_LIST$};
 
@@ -331,17 +340,11 @@ pallas::base_field_type::value_type pow9(pallas::base_field_type::value_type x){
 }
 
 pallas::base_field_type::value_type pow(pallas::base_field_type::value_type x, size_t p){
-    pallas::base_field_type::value_type result = 1;
-	std::size_t mask = 1;
-	while(mask < p){mask = mask * 2;} // 8
- 	while(mask > 1){
-		result = result * result;
-        mask = mask / 2;
-		if( p >= mask ){
-			result = result * x;
-			p = p - mask;
-		}
-	}
+    if( p == 0 ) return pallas::base_field_type::value_type(1);
+    if( p == 1 ) return x;
+    pallas::base_field_type::value_type result = pow(x, p/2);
+    result = result * result;
+    if( p%2 == 1 ) result = result * x;
     return result;
 }
 
@@ -610,7 +613,7 @@ typedef __attribute__((ext_vector_type(2)))
 
 
 [[circuit]] bool placeholder_verifier(
-    std::array<pallas::base_field_type::value_type, full_public_input_size> public_input,
+    $PUBLIC_INPUT_INPUT$
     std::array<pallas::base_field_type::value_type, 2> vk,
     placeholder_proof_type proof
 ) {
@@ -620,18 +623,7 @@ typedef __attribute__((ext_vector_type(2)))
     precomputed_values_type precomputed_values;
     std::tie(precomputed_values.l0, precomputed_values.Z_at_xi) = xi_polys(challenges.xi);
 
-    //Check public input
-    std::size_t cur = 0;
-    for( std::size_t i = 0; i < public_input_amount; i++){
-        pallas::base_field_type::value_type Omega(1);
-        pallas::base_field_type::value_type result(0);
-        for( std::size_t j = 0; j < public_input_sizes[i]; j++){
-            result += public_input[cur] * Omega / (challenges.xi - Omega);
-            Omega *= omega;
-            cur++;
-        }
-        __builtin_assigner_exit_check(rows_amount * proof.z[zero_indices[witness_amount + i]] == precomputed_values.Z_at_xi * result);
-    }
+    $PUBLIC_INPUT_CHECK$
 
     std::array<pallas::base_field_type::value_type, 8> F;// = {0,0,0,0,0,0,0,0};
 

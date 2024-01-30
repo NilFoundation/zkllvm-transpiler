@@ -596,10 +596,8 @@ namespace nil {
                     gate_argument_str << "\t\tuint256 gate;" << std::endl;
                     gate_argument_str << print_constraint_series(it, constraints.end());
                 } else {
-                    std::cout << "I am here!" << std::endl;
                     auto it = constraints.begin();
                     while (it != constraints.end()) {
-                        std::cout << "Gates modules count" <<  gate_modules_count << std::endl;
                         std::string code = print_constraint_series(it, constraints.end());
 
                         std::string result = modular_external_gate_library_template;
@@ -619,7 +617,6 @@ namespace nil {
                         ++gate_modules_count;
                     }
                 }
-                std::cout << "Finished" << std::endl;
 
                 if (_term_powers.size() > 0) {
                     std::stringstream power_functions;
@@ -881,7 +878,6 @@ namespace nil {
 
             void print(){
                 std::filesystem::create_directory(_folder_name);
-                std::cout << "Generating verifier " << _test_name << std::endl;
 
                 std::string gate_argument = print_gate_argument();
                 std::string lookup_argument = print_lookup_argument();

@@ -220,7 +220,6 @@ namespace nil {
                         for(std::size_t j = 0; j < eval_proof.z.get_poly_points_number(k, i); j++){
                             if( sum != 0 ) out << "," << std::endl;
                             out << "\t\t\t{\"field\":\"" << eval_proof.z.get(k, i, j) << "\"}";
-                            //std::cout << "batch " << k << " poly " << i << " value " <<  eval_proof.z.get(k, i, j) << std::endl;
                             sum++;
                         }
                     }
@@ -349,29 +348,30 @@ namespace nil {
                 std::stringstream out;
                 out << "[" << std::endl;
 
-                out << "\t{\"array\":[" << std::endl;
-                std::size_t cur = 0;
-                for(std::size_t i = 0; i < arithmetization_params::public_input_columns; i++){
-                    std::size_t max_non_zero = 0;
-                    for(std::size_t j = 0; j < public_inputs[i].size(); j++){
-                        if( public_inputs[i][j] != 0 ) max_non_zero = j;
+                if(arithmetization_params::public_input_columns != 0){
+                    out << "\t{\"array\":[" << std::endl;
+                    std::size_t cur = 0;
+                    for(std::size_t i = 0; i < arithmetization_params::public_input_columns; i++){
+                        std::size_t max_non_zero = 0;
+                        for(std::size_t j = 0; j < public_inputs[i].size(); j++){
+                            if( public_inputs[i][j] != 0 ) max_non_zero = j;
+                        }
+                        if( max_non_zero + 1 > public_input_sizes[i] ) {
+                            std::cout << "Public input size is larger than reserved. Real size = " << max_non_zero  + 1 << " reserved = " << public_input_sizes[i] << std::endl;
+                            exit(1);
+                        }
+                        BOOST_ASSERT(max_non_zero <= public_input_sizes[i]);
+                        for(std::size_t j = 0; j < public_input_sizes[i]; j++){
+                            if(cur != 0) out << "," << std::endl;
+                            if( j >= public_inputs[i].size() )
+                                out << "\t\t{\"field\": \"" << typename field_type::value_type(0) << "\"}";
+                            else
+                                out << "\t\t{\"field\": \"" << public_inputs[i][j] << "\"}";
+                            cur++;
+                        }
                     }
-                    if( max_non_zero + 1 > public_input_sizes[i] ) {
-                        std::cout << "Public input size is larger than reserved. Real size = " << max_non_zero  + 1 << " reserved = " << public_input_sizes[i] << std::endl;
-                        exit(1);
-                    }
-                    BOOST_ASSERT(max_non_zero <= public_input_sizes[i]);
-                    for(std::size_t j = 0; j < public_input_sizes[i]; j++){
-                        if(cur != 0) out << "," << std::endl;
-                        if( j >= public_inputs[i].size() )
-                            out << "\t\t{\"field\": \"" << typename field_type::value_type(0) << "\"}";
-                        else
-                            out << "\t\t{\"field\": \"" << public_inputs[i][j] << "\"}";
-                        cur++;
-                    }
+                    out << std::endl << "\t]}," << std::endl;
                 }
-                out << std::endl << "\t]}," << std::endl;
-                std::cout << "Public input:  " << out.str() << std::endl;
 
                 out << "\t{\"array\":[" << std::endl;
                 out << "\t\t" << generate_hash<typename PlaceholderParams::transcript_hash_type>(
@@ -743,7 +743,6 @@ namespace nil {
                         }
                     }
                 }
-                std::cout << "Printing" << std::endl;
 
                 std::stringstream lookup_shifted_options_list;
                 cur = 0;
@@ -770,40 +769,6 @@ namespace nil {
                     use_lookups?constraint_system.sorted_lookup_columns_number():0,
                     "recursive" // Generator mode
                 );
-                std::cout << "Singles" << std::endl;
-                for( const auto &single: singles_strs){
-                    std::cout << single << std::endl;
-                }
-                std::cout << "Singles_map" << std::endl;
-                for( const auto &[single, ind]: singles_map){
-                    std::cout << single << " => " << ind << std::endl;
-                }
-                std::cout << "Poly ids" << std::endl;
-                for( std::size_t i = 0; i < poly_ids.size(); i++){
-                    std::cout << "Poly " << i << std::endl;
-                    for( std::size_t j = 0; j < poly_ids[i].size(); j++){
-                        std::cout << poly_ids[i][j] << " ";
-                    }
-                    std::cout << std::endl;
-                }
-                std::cout << "Z points indices" << std::endl;
-                for( std::size_t i = 0; i < z_points_indices.size(); i++){
-                    std::cout << "[" << i << "]=>" <<  z_points_indices[i] << " ";
-                }
-                std::cout << std::endl;
-
-                std::vector<std::vector<std::string>> unique_points;
-                std::vector<std::size_t> point_ids;
-                std::map<std::string, std::size_t> singles;
-                std::tie(unique_points, point_ids, singles) = calculate_unique_point_sets(
-                    common_data, permutation_size, use_lookups, quotient_polys, use_lookups?constraint_system.sorted_lookup_columns_number():0
-                );
-
-                std::string point_inds_str = "";
-                for(std::size_t i = 0; i < point_ids.size(); i++){
-                    if( i != 0) point_inds_str += ", ";
-                    point_inds_str += to_string(point_ids[i]);
-                }
 
                 std::string singles_str = "";
                 for(const auto &[k, v]: singles_map){
@@ -822,27 +787,12 @@ namespace nil {
 
                 std::stringstream prepare_U_V_str;
                 prepare_U_V_str << "\tpallas::base_field_type::value_type theta_acc = pallas::base_field_type::value_type(1);\n\n";
-                for(std::size_t i = 0; i < unique_points.size();i++){
+                for(std::size_t i = 0; i < singles_strs.size();i++){
                     for(std::size_t j = 0; j <z_points_indices.size(); j++){
                         if( z_points_indices[j] == i)
                             prepare_U_V_str << "\tU[" + to_string(i) << "] += theta_acc * proof.z[" << j << "]; theta_acc *= challenges.lpc_theta;\n";
                     }
                     prepare_U_V_str << "\n";
-                }
-
-                std::stringstream compute_combined_y;
-                for(std::size_t i = 0; i < point_ids.size(); i++){
-                    /*y[0] = y[0] * challenges.lpc_theta;
- 			        y[0] = y[0] + proof.initial_proof_values[initial_proof_ind] * V_evals[point_ids[k]][0];
-			        y[1] = y[1] * challenges.lpc_theta;
-			        y[1] = y[1] + proof.initial_proof_values[initial_proof_ind+1] * V_evals[point_ids[k]][1];*/
-
-//                    compute_combined_y << "\t\ty[0] = y[0]*challenges.lpc_theta;" << std::endl;
-//                    compute_combined_y << "\t\ty[0] = y[0] + proof.initial_proof_values[initial_proof_ind] * V_evals[" << point_ids[i]<< "][0];" << std::endl;
-//                    compute_combined_y << "\t\tinitial_proof_ind++;" << std::endl;
-//                    compute_combined_y << "\t\ty[1] = y[1]*challenges.lpc_theta;" << std::endl;
-//                    compute_combined_y << "\t\ty[1] = y[1] + proof.initial_proof_values[initial_proof_ind] * V_evals[" << point_ids[i]<< "][1];" << std::endl;
-//                    compute_combined_y << "\t\tinitial_proof_ind++;" << std::endl;
                 }
 
                 std::string public_input_sizes_str = "";
@@ -864,9 +814,8 @@ namespace nil {
                     }
                     lpc_y_computation << "\t\tQ0 -= U["<< i << "];" << std::endl;
                     lpc_y_computation << "\t\tQ1 -= U["<< i << "];" << std::endl;
-                    lpc_y_computation << "\t\tQ0 /= (res[0][0] - challenges." << singles_strs[i] <<");" << std::endl;
-                    lpc_y_computation << "\t\tQ1 /= (res[0][1] - challenges." << singles_strs[i] <<");" << std::endl;
-                    std::cout << "single " << singles_strs[i] << std::endl;
+                    lpc_y_computation << "\t\tQ0 /= (res[0][0] - singles[" << i << "]);" << std::endl;
+                    lpc_y_computation << "\t\tQ1 /= (res[0][1] - singles[" << i << "]);" << std::endl;
                     lpc_y_computation << "\t\ty[0] += Q0;" << std::endl;
                     lpc_y_computation << "\t\ty[1] += Q1;" << std::endl;
                 }
@@ -920,12 +869,10 @@ namespace nil {
                 reps["$D0_OMEGA$"] = "pallas::base_field_type::value_type(0x" + to_hex_string(fri_params.D[0]->get_domain_element(1)) + "_cppui255)";
                 reps["$OMEGA$"] = "pallas::base_field_type::value_type(0x" + to_hex_string(common_data.basic_domain->get_domain_element(1)) + "_cppui255)";
                 reps["$FRI_ROUNDS$"] = to_string(fri_params.r);
-                reps["$UNIQUE_POINTS$"] = to_string(unique_points.size());
-                reps["$POINTS_IDS$"] = point_inds_str;
-                reps["$SINGLES_AMOUNT$"] = to_string(singles.size());
+                reps["$UNIQUE_POINTS$"] = to_string(singles_strs.size());
+                reps["$SINGLES_AMOUNT$"] = to_string(singles_strs.size());
                 reps["$SINGLES_COMPUTATION$"] = singles_str;
                 reps["$PREPARE_U_AND_V$"] = prepare_U_V_str.str();
-                reps["$COMPUTE_COMBINED_Y$"] = compute_combined_y.str();
                 reps["$SORTED_COLUMNS$"] = to_string(constraint_system.sorted_lookup_columns_number());
                 reps["$SORTED_ALPHAS$"] = to_string(use_lookups? constraint_system.sorted_lookup_columns_number() - 1: 1);
                 reps["$LOOKUP_TABLE_AMOUNT$"] = to_string(constraint_system.lookup_tables().size());
@@ -951,6 +898,8 @@ namespace nil {
                 reps["$FULL_PUBLIC_INPUT_SIZE$"] = to_string(full_public_input_size);
                 reps["$LPC_POLY_IDS_CONSTANT_ARRAYS$"] = lpc_poly_ids_const_arrays;
                 reps["$LPC_Y_COMPUTATION$"] = lpc_y_computation.str();
+                reps["$PUBLIC_INPUT_CHECK$"] = arithmetization_params::public_input_columns == 0 ? "" :public_input_check_str;
+                reps["$PUBLIC_INPUT_INPUT$"] = arithmetization_params::public_input_columns == 0 ? "" : public_input_input_str;
 
                 result = replace_all(result, reps);
                 return result;

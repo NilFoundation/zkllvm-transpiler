@@ -62,15 +62,6 @@ namespace nil {
                 "evm" // Generator mode
             );
 
-            for( std::size_t i = 0; i < z_points_indices.size(); i ++){
-                std::cout << "[" << i <<"]" << "=>" << z_points_indices[i] << " ";
-            }
-            std::cout << std::endl;
-
-            for( std::size_t i = 0; i < poly_ids.size(); i++ ){
-                std::cout << "point " << i << " has " << poly_ids[i].size() <<" polys." << std::endl;
-            }
-
             std::stringstream points_initializer;
             std::size_t i = 0;
 

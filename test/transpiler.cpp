@@ -743,7 +743,7 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
         std::ofstream output_file;
         output_file.open(cpp_path);
         output_file << nil::blueprint::recursive_verifier_generator<lpc_placeholder_params_type, proof_type, common_data_type>::generate_recursive_verifier(
-            constraint_system, preprocessed_public_data.common_data, lpc_scheme, columns_with_copy_constraints.size(), {preprocessed_public_data.common_data.usable_rows_amount}
+            constraint_system, preprocessed_public_data.common_data, lpc_scheme, columns_with_copy_constraints.size(), {preprocessed_public_data.common_data.usable_rows_amount + 1}
         );
         output_file.close();
     }
@@ -764,7 +764,7 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
         std::ofstream output_file;
         output_file.open(inp_path);
         output_file << nil::blueprint::recursive_verifier_generator<lpc_placeholder_params_type, proof_type, common_data_type>::generate_input(
-            preprocessed_public_data.common_data.vk, assignments.public_inputs(), proof,  {preprocessed_public_data.common_data.usable_rows_amount}
+            preprocessed_public_data.common_data.vk, assignments.public_inputs(), proof,  {preprocessed_public_data.common_data.usable_rows_amount + 1}
         );
         output_file.close();
     }
@@ -847,7 +847,7 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
         std::ofstream output_file;
         output_file.open(cpp_path);
         output_file << nil::blueprint::recursive_verifier_generator<lpc_placeholder_params_type, proof_type, common_data_type>::generate_recursive_verifier(
-            constraint_system, preprocessed_public_data.common_data, lpc_scheme, columns_with_copy_constraints.size(), {2}
+            constraint_system, preprocessed_public_data.common_data, lpc_scheme, columns_with_copy_constraints.size(), {3}
         );
         output_file.close();
     }
@@ -867,12 +867,12 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
     std::ofstream output_file;
     output_file.open(inp_path);
     output_file << nil::blueprint::recursive_verifier_generator<lpc_placeholder_params_type, proof_type, common_data_type>::generate_input(
-        preprocessed_public_data.common_data.vk, assignments.public_inputs(), proof,  {2}
+        preprocessed_public_data.common_data.vk, assignments.public_inputs(), proof,  {3}
     );
     output_file.close();
 }
 BOOST_AUTO_TEST_SUITE_END()
-/*
+
 BOOST_AUTO_TEST_SUITE(recursive_circuit3)
     using Endianness = nil::marshalling::option::big_endian;
     using TTypeBase = nil::marshalling::field_type<Endianness>;
@@ -914,8 +914,8 @@ BOOST_AUTO_TEST_SUITE(recursive_circuit3)
     using lpc_scheme_type = typename commitments::lpc_commitment_scheme<lpc_type>;
     using lpc_placeholder_params_type = nil::crypto3::zk::snark::placeholder_params<circuit_params, lpc_scheme_type>;
     using policy_type = zk::snark::detail::placeholder_policy<field_type, circuit_params>;
-    using proof_type = nil::crypto3::zk::snark::placeholder_proof<field_type, lpc_placeholder_params>;
-    using common_data_type = nil::crypto3::zk::snark::placeholder_public_preprocessor<field_type, lpc_placeholder_params>::preprocessed_data_type::common_data_type;
+    using proof_type = nil::crypto3::zk::snark::placeholder_proof<field_type, lpc_placeholder_params_type>;
+    using common_data_type = nil::crypto3::zk::snark::placeholder_public_preprocessor<field_type, lpc_placeholder_params_type>::preprocessed_data_type::common_data_type;
 
 BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
     auto circuit = circuit_test_3<field_type>();
@@ -939,13 +939,14 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
 
     typename placeholder_public_preprocessor<field_type, lpc_placeholder_params_type>::preprocessed_data_type
         preprocessed_public_data = placeholder_public_preprocessor<field_type, lpc_placeholder_params_type>::process(
-            constraint_system, assignments.public_table(), desc, lpc_scheme, columns_with_copy_constraints.size());
+            constraint_system, assignments.public_table(), desc, lpc_scheme, columns_with_copy_constraints.size()
+        );
     {
         std::string cpp_path = "./circuit3/placeholder_verifier.cpp";
         std::ofstream output_file;
         output_file.open(cpp_path);
         output_file << nil::blueprint::recursive_verifier_generator<lpc_placeholder_params_type, proof_type, common_data_type>::generate_recursive_verifier(
-            constraint_system, preprocessed_public_data.common_data, lpc_scheme, permutation_size
+            constraint_system, preprocessed_public_data.common_data, lpc_scheme, columns_with_copy_constraints.size(), std::array<std::size_t, 0>()
         );
         output_file.close();
     }
@@ -966,7 +967,7 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
         std::ofstream output_file;
         output_file.open(inp_path);
         output_file << nil::blueprint::recursive_verifier_generator<lpc_placeholder_params_type, proof_type, common_data_type>::generate_input(
-            {}, preprocessed_public_data.common_data.vk, proof
+            preprocessed_public_data.common_data.vk, assignments.public_inputs(), proof, std::array<std::size_t,0>()
         );
         output_file.close();
     }
@@ -1043,7 +1044,7 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
         std::ofstream output_file;
         output_file.open(cpp_path);
         output_file << nil::blueprint::recursive_verifier_generator<lpc_placeholder_params_type, proof_type, common_data_type>::generate_recursive_verifier(
-            constraint_system, preprocessed_public_data.common_data, lpc_scheme, permutation_size
+            constraint_system, preprocessed_public_data.common_data, lpc_scheme, columns_with_copy_constraints.size(), std::array<std::size_t, 0>()
         );
         output_file.close();
     }
@@ -1064,7 +1065,7 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
         std::ofstream output_file;
         output_file.open(inp_path);
         output_file << nil::blueprint::recursive_verifier_generator<lpc_placeholder_params_type, proof_type, common_data_type>::generate_input(
-            {}, preprocessed_public_data.common_data.vk, proof
+            preprocessed_public_data.common_data.vk, assignments.public_inputs(), proof, std::array<std::size_t, 0>()
         );
         output_file.close();
     }
@@ -1112,8 +1113,8 @@ BOOST_AUTO_TEST_SUITE(recursive_circuit6)
     using lpc_scheme_type = typename commitments::lpc_commitment_scheme<lpc_type>;
     using lpc_placeholder_params_type = nil::crypto3::zk::snark::placeholder_params<circuit_params, lpc_scheme_type>;
     using policy_type = zk::snark::detail::placeholder_policy<field_type, circuit_params>;
-    using proof_type = nil::crypto3::zk::snark::placeholder_proof<field_type, lpc_placeholder_params>;
-    using common_data_type = nil::crypto3::zk::snark::placeholder_public_preprocessor<field_type, lpc_placeholder_params>::preprocessed_data_type::common_data_type;
+    using proof_type = nil::crypto3::zk::snark::placeholder_proof<field_type, lpc_placeholder_params_type>;
+    using common_data_type = nil::crypto3::zk::snark::placeholder_public_preprocessor<field_type, lpc_placeholder_params_type>::preprocessed_data_type::common_data_type;
 
 BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
     auto circuit = circuit_test_6<field_type>(test_global_alg_rnd_engine<field_type>, test_global_rnd_engine);
@@ -1143,12 +1144,10 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
         std::ofstream output_file;
         output_file.open(cpp_path);
         output_file << nil::blueprint::recursive_verifier_generator<lpc_placeholder_params_type, proof_type, common_data_type>::generate_recursive_verifier(
-            constraint_system, preprocessed_public_data.common_data, lpc_scheme, permutation_size
+            constraint_system, preprocessed_public_data.common_data, lpc_scheme, columns_with_copy_constraints.size(), std::array<std::size_t, 0>()
         );
         output_file.close();
     }
-
-    std::cout << std::endl << std::endl;
 
     typename placeholder_private_preprocessor<field_type, lpc_placeholder_params_type>::preprocessed_data_type
         preprocessed_private_data = placeholder_private_preprocessor<field_type, lpc_placeholder_params_type>::process(
@@ -1166,13 +1165,13 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
         std::ofstream output_file;
         output_file.open(inp_path);
         output_file << nil::blueprint::recursive_verifier_generator<lpc_placeholder_params_type, proof_type, common_data_type>::generate_input(
-            {}, preprocessed_public_data.common_data.vk, proof
+            preprocessed_public_data.common_data.vk, assignments.public_inputs(), proof, std::array<std::size_t, 0>()
         );
         output_file.close();
     }
 }
 BOOST_AUTO_TEST_SUITE_END()
-*/
+
 BOOST_AUTO_TEST_SUITE(recursive_circuit7)
     using Endianness = nil::marshalling::option::big_endian;
     using TTypeBase = nil::marshalling::field_type<Endianness>;
@@ -1247,7 +1246,7 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
         std::ofstream output_file;
         output_file.open(cpp_path);
         output_file << nil::blueprint::recursive_verifier_generator<lpc_placeholder_params_type, proof_type, common_data_type>::generate_recursive_verifier(
-            constraint_system, preprocessed_public_data.common_data, lpc_scheme, permutation_size, {}
+            constraint_system, preprocessed_public_data.common_data, lpc_scheme, columns_with_copy_constraints.size(), std::array<std::size_t, 0>()
         );
         output_file.close();
     }
@@ -1268,7 +1267,7 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
         std::ofstream output_file;
         output_file.open(inp_path);
         output_file << nil::blueprint::recursive_verifier_generator<lpc_placeholder_params_type, proof_type, common_data_type>::generate_input(
-            preprocessed_public_data.common_data.vk, assignments.public_inputs(), proof, {}
+            preprocessed_public_data.common_data.vk, assignments.public_inputs(), proof, std::array<std::size_t, 0>()
         );
         output_file.close();
     }
