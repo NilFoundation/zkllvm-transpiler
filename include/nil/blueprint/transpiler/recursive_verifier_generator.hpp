@@ -42,6 +42,10 @@
 #include <nil/crypto3/zk/math/expression_evaluator.hpp>
 
 #include<nil/blueprint/transpiler/templates/recursive_verifier.hpp>
+<<<<<<< HEAD
+=======
+
+>>>>>>> f206e94a0635f5ba293f7decb9e08ffe08503bc1
 namespace nil {
     namespace blueprint {
         template<typename PlaceholderParams>
@@ -419,6 +423,7 @@ namespace nil {
                 const constraint_system_type &constraint_system,
                 const common_data_type &common_data,
                 const commitment_scheme_type &commitment_scheme,
+<<<<<<< HEAD
                 std::size_t permutation_size,
                 const std::array<std::size_t, arithmetization_params::public_input_columns> public_input_sizes
             ){
@@ -691,6 +696,8 @@ namespace nil {
                 result = replace_all(result, reps);
                 return result;
 =======
+=======
+>>>>>>> f206e94a0635f5ba293f7decb9e08ffe08503bc1
                 std::size_t permutation_size
             ){
                 if constexpr(std::is_same<
@@ -794,10 +801,17 @@ namespace nil {
                 }
                 BOOST_ASSERT_MSG(false, "unsupported commitment scheme type");
                 return "unsupported commitment scheme type";
+<<<<<<< HEAD
 >>>>>>> f302960... Add recursive generator, update EVM verifier #39
+=======
+>>>>>>> f206e94a0635f5ba293f7decb9e08ffe08503bc1
             }
         };
     }
 }
 
+<<<<<<< HEAD
 #endif   // CRYPTO3_RECURSIVE_VERIFIER_GENERATOR_HPP
+=======
+#endif   // CRYPTO3_RECURSIVE_VERIFIER_GENERATOR_HPP
+>>>>>>> f206e94a0635f5ba293f7decb9e08ffe08503bc1

@@ -90,7 +90,7 @@ namespace nil {
             transcript(common_data.vk.fixed_values_commitment);
             auto etha = transcript.template challenge<typename PlaceholderParams::field_type>();
 
-            auto fri_params = lpc_scheme.get_fri_params();
+            auto fri_params = lpc_scheme.get_commitment_params();
             replacements["$R$"] = to_string(fri_params.r);
             replacements["$LAMBDA$"] = to_string(PlaceholderParams::commitment_scheme_type::fri_type::lambda);
             replacements["$D0_SIZE$"] = to_string(fri_params.D[0]->m);

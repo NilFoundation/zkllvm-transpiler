@@ -202,6 +202,7 @@ BOOST_AUTO_TEST_SUITE(placeholder_circuit1)
         crypto3::zk::commitments::proof_of_work<transcript_hash_type, std::uint32_t, 0xFFFF8000 >
     >;
 
+
     using lpc_type = commitments::list_polynomial_commitment<field_type, lpc_params_type>;
     using lpc_scheme_type = typename commitments::lpc_commitment_scheme<lpc_type>;
     using lpc_placeholder_params_type = nil::crypto3::zk::snark::placeholder_params<circuit_params, lpc_scheme_type>;
@@ -565,7 +566,6 @@ BOOST_FIXTURE_TEST_CASE(transpiler_test, test_initializer) {
     typename placeholder_public_preprocessor<field_type, lpc_placeholder_params_type>::preprocessed_data_type
         preprocessed_public_data = placeholder_public_preprocessor<field_type, lpc_placeholder_params_type>::process(
             constraint_system, assignments.public_table(), desc, lpc_scheme, columns_with_copy_constraints.size());
-
     auto printer = nil::blueprint::evm_verifier_printer<lpc_placeholder_params_type>(
         constraint_system,
         preprocessed_public_data.common_data,
