@@ -598,6 +598,7 @@ namespace nil {
                 } else {
                     auto it = constraints.begin();
                     while (it != constraints.end()) {
+                        std::cout << "Gates modules count" <<  gate_modules_count << std::endl;
                         std::string code = print_constraint_series(it, constraints.end());
 
                         std::string result = modular_external_gate_library_template;
@@ -878,7 +879,6 @@ namespace nil {
 
             void print(){
                 std::filesystem::create_directory(_folder_name);
-
                 std::string gate_argument = print_gate_argument();
                 std::string lookup_argument = print_lookup_argument();
 
