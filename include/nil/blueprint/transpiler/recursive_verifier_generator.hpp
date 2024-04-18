@@ -242,11 +242,11 @@ namespace nil {
 
             template<typename CommitmentSchemeType>
             static inline std::string generate_eval_proof(typename CommitmentSchemeType::proof_type eval_proof) {
-                if( CommitmentSchemeType::lpc::use_grinding ){
-                    BOOST_ASSERT_MSG(false, "grinding is not supported");
-                    std::cout << "Grinding is not supported" << std::endl;
-                    return "Grinding is not supported";
-                }
+                // if( CommitmentSchemeType::lpc::use_grinding ){
+                //     BOOST_ASSERT_MSG(false, "grinding is not supported");
+                //     std::cout << "Grinding is not supported" << std::endl;
+                //     return "Grinding is not supported";
+                // }
 
                 std::stringstream out;
                 out << "\t\t{\"array\":[" << std::endl;
