@@ -233,13 +233,14 @@ struct transcript_state_type{
     std::size_t cur;
 };
 
+void transcript_full(transcript_state_type &tr_state, pallas::base_field_type::value_type value) {
+	tr_state.state[0] = __builtin_assigner_poseidon_pallas_base({tr_state.state[0],tr_state.state[1],tr_state.state[2]})[2];
+	tr_state.state[1] = value;
+	tr_state.state[2] = pallas::base_field_type::value_type(0);
+	tr_state.cur = 2;
+}
+
 void transcript(transcript_state_type &tr_state, pallas::base_field_type::value_type value) {
-    if(tr_state.cur == 3){
-        tr_state.state[0] = __builtin_assigner_poseidon_pallas_base({tr_state.state[0],tr_state.state[1],tr_state.state[2]})[2];
-        tr_state.state[1] = pallas::base_field_type::value_type(0);
-        tr_state.state[2] = pallas::base_field_type::value_type(0);
-        tr_state.cur = 1;
-    }
 	tr_state.state[tr_state.cur] = value;
 	tr_state.cur++;
 }
@@ -337,53 +338,57 @@ placeholder_challenges_type generate_challenges(
     tr_state.state[2] = pallas::base_field_type::value_type(0);
     tr_state.cur = 1;
 
-    transcript(tr_state, vk0);
-    transcript(tr_state, vk1);
+    transcript(tr_state, vk0); // curr: 1 to 2
+    transcript(tr_state, vk1); // curr: 2 to 3
 
     // LPC additional point
-    challenges.eta = transcript_challenge(tr_state);
-    transcript(tr_state, proof.commitments[0]);
+    challenges.eta = transcript_challenge(tr_state); // curr: 3 to 1
+    transcript(tr_state, proof.commitments[0]); // curr: 1 to 2
 
-    challenges.perm_beta = transcript_challenge(tr_state);
-    challenges.perm_gamma = transcript_challenge(tr_state);
+    challenges.perm_beta = transcript_challenge(tr_state); // curr: 2 to 1
+    challenges.perm_gamma = transcript_challenge(tr_state); // curr: 1 to 1
 
     // Call lookup argument
     if( use_lookups ){
-        challenges.lookup_theta = transcript_challenge(tr_state);
-        transcript(tr_state, proof.commitments[3]);
-        challenges.lookup_beta = transcript_challenge(tr_state);
-        challenges.lookup_gamma = transcript_challenge(tr_state);
+        challenges.lookup_theta = transcript_challenge(tr_state); // curr: 1 to 1
+        transcript(tr_state, proof.commitments[3]); // curr: 1 to 2
+        challenges.lookup_beta = transcript_challenge(tr_state); // curr: 2 to 1
+        challenges.lookup_gamma = transcript_challenge(tr_state); // curr: 1 to 1
 
         for(std::size_t i = 0; i < sorted_columns-1; i++){
-            challenges.lookup_alphas[i] = transcript_challenge(tr_state);
+            challenges.lookup_alphas[i] = transcript_challenge(tr_state); // curr: 1 to 1
         }
     }
 
     // Call gate argument
-    transcript(tr_state, proof.commitments[1]);
-    challenges.gate_theta = transcript_challenge(tr_state);
+    transcript(tr_state, proof.commitments[1]); // curr: 1 to 2
+    challenges.gate_theta = transcript_challenge(tr_state); // curr: 1 to 1
 
     for(std::size_t i = 0; i < 8; i++){
-        challenges.alphas[i] = transcript_challenge(tr_state);
+        challenges.alphas[i] = transcript_challenge(tr_state); // curr: 1 to 1
     }
-    transcript(tr_state, proof.commitments[2]);
+    transcript(tr_state, proof.commitments[2]); // curr: 1 to 2
 
-    challenges.xi = transcript_challenge(tr_state);
+    challenges.xi = transcript_challenge(tr_state); // curr: 2 to 1
 
-    transcript(tr_state, vk1);
-    for(std::size_t i = 0; i < commitments_num; i++){
-        transcript(tr_state, proof.commitments[i]);
+    transcript(tr_state, vk1); // curr: 1 to 2
+    for(std::size_t i = 0; i < (commitments_num / 2); i++){
+        transcript(tr_state, proof.commitments[i]); // curr: 2 to 3
+        transcript_full(tr_state, proof.commitments[i + 1]); // curr: 3 to 2
+    }
+    for(std::size_t i = 0; i < (commitments_num % 2); i++){
+        transcript(tr_state, proof.commitments[i + (commitments_num / 2) * 2]); // curr: 2 to 3
     }
 
-    challenges.lpc_theta = transcript_challenge(tr_state);
+    challenges.lpc_theta = transcript_challenge(tr_state); // curr: 3 to 1
 
     for(std::size_t i = 0; i < fri_roots_num; i++){
-        transcript(tr_state, proof.fri_roots[i]);
-        challenges.fri_alphas[i] = transcript_challenge(tr_state);
+        transcript(tr_state, proof.fri_roots[i]); // curr: 1 to 2
+        challenges.fri_alphas[i] = transcript_challenge(tr_state);  // curr: 2 to 1
     }
 
     for(std::size_t i = 0; i < lambda; i++){
-        challenges.fri_x_indices[i] = transcript_challenge(tr_state);
+        challenges.fri_x_indices[i] = transcript_challenge(tr_state); // curr: 1 to 1
     }
 
     return challenges;
