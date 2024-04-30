@@ -1,0 +1,136 @@
+name: build-linux
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+concurrency:
+  # In master we want to run for every commit, in other branches — only for the last one
+  group: ${{
+    ( github.ref == 'refs/heads/master' &&
+    format('{0}/{1}/{2}', github.workflow, github.ref, github.sha) )
+    ||
+    format('{0}/{1}', github.workflow, github.ref) }}
+  cancel-in-progress: true
+
+jobs:
+  handle-syncwith:
+    if: github.event_name == 'pull_request'
+    name: Call Reusable SyncWith Handler
+    uses: NilFoundation/ci-cd/.github/workflows/reusable-handle-syncwith.yml@v1.1.2
+    with:
+      ci-cd-ref: 'v1.1.2'
+    secrets: inherit
+
+  build-and-test-linux:
+    name: Build zkllvm-transpiler, run local tests
+    runs-on: [ self-hosted, Linux, X64, aws_autoscaling ]
+    needs:
+      - handle-syncwith
+    # Condition is needed to run it for push event (handle-syncwith is skipped)
+    if: |
+      always() && !cancelled() &&
+      (needs.handle-syncwith.result == 'success' || needs.handle-syncwith.result == 'skipped')
+    outputs: # TODO
+      transpiler-artifact-name: ${{ steps.artifact-names.outputs.transpiler }}
+      examples-artifact-name: ${{ steps.artifact-names.outputs.examples }}
+      evm-targets: ${{ steps.get-targets.outputs.evm-targets }}
+      prover-targets: ${{ steps.get-targets.outputs.prover-targets }}
+
+    env:
+      CONTAINER_TMP: /opt/
+      HOST_TMP: /home/runner/work/_temp/
+      DEBIAN_FRONTEND: noninteractive
+      BOOST_VERSION: "1.80.0"
+      INTEGRATION_TESTING_TARGETS: | #TODO
+        arithmetics_cpp_example
+        polynomial_cpp_example
+        poseidon_cpp_example
+        merkle_tree_poseidon_cpp_example
+        uint_remainder_cpp
+        uint_shift_left
+        uint_bit_decomposition
+        uint_bit_composition
+        compare_eq_cpp
+        private_input_cpp
+
+    container:
+      image: ubuntu:22.04
+      volumes:
+        - /home/runner/work/_temp/:/opt/
+
+    steps:
+      - name: Install dependencies
+        run: |
+          env && \
+          apt update && \
+          apt install -y \
+            build-essential \
+            libssl-dev \
+            cmake \
+            ninja-build \
+            git \
+            libicu-dev \
+            curl \
+            pkg-config
+
+      - name: Print toolchain information
+        run: |
+          git --version
+          cc --version
+          cmake --version
+          ninja --version
+
+      - name: Checkout sources
+        # We need full history, because during CMake config stage we are finding the nearest tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      # Workaround: https://github.com/actions/checkout/issues/1169
+      - name: Mark directory as safe
+        run: |
+          git config --system --add safe.directory $PWD
+
+      - name: Checkout submodules
+        run: |
+          git submodule update --init --recursive --depth=1
+
+      - name: Clean index.lock files if checkout step was cancelled or failed
+        if: cancelled() || failure()
+        run: |
+          find .git -name 'index.lock' -exec rm -v {} \;
+
+      - name: Install boost
+        uses: MarkusJx/install-boost@v2.4.1
+        id: install-boost
+        with:
+            # A list of supported versions can be found here:
+            # https://github.com/MarkusJx/prebuilt-boost/blob/main/versions-manifest.json
+            boost_version: ${{ env.BOOST_VERSION }}
+            boost_install_dir: ${{ env.CONTAINER_TMP }}
+            platform_version: 22.04
+            toolset: gcc
+            arch: x86
+
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Configure CMake
+        env:
+          BOOST_ROOT: "${{ steps.install-boost.outputs.BOOST_ROOT }}"
+        run: |
+          cmake . \
+            -G "Ninja" \
+            -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCI_BUILD=TRUE
+
+      - name: Build test
+        run: |
+          cmake --build build -t compile_and_run_transpiler_tests
+
