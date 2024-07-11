@@ -40,7 +40,6 @@
 #include <nil/crypto3/algebra/curves/vesta.hpp>
 #include <nil/crypto3/algebra/fields/arithmetic_params/vesta.hpp>
 #include <nil/crypto3/algebra/random_element.hpp>
-
 #include <nil/crypto3/math/algorithms/unity_root.hpp>
 #include <nil/crypto3/math/polynomial/lagrange_interpolation.hpp>
 #include <nil/crypto3/math/algorithms/calculate_domain_set.hpp>
@@ -50,6 +49,8 @@
 #include <nil/crypto3/hash/md5.hpp>
 #include <nil/crypto3/hash/keccak.hpp>
 #include <nil/crypto3/hash/poseidon.hpp>
+
+#include <nil/crypto3/marshalling/zk/types/plonk/constraint_system.hpp>
 
 #include <nil/crypto3/zk/snark/systems/plonk/placeholder/prover.hpp>
 #include <nil/crypto3/zk/snark/systems/plonk/placeholder/verifier.hpp>
@@ -65,7 +66,6 @@
 #include <nil/crypto3/zk/commitments/polynomial/kzg.hpp>
 #include <nil/crypto3/zk/commitments/detail/polynomial/proof_of_work.hpp>
 #include <nil/crypto3/zk/commitments/batched_commitment.hpp>
-
 #include <nil/crypto3/random/algebraic_random_device.hpp>
 #include <nil/crypto3/random/algebraic_engine.hpp>
 
@@ -103,7 +103,7 @@ inline std::vector<std::size_t> generate_random_step_list(const std::size_t r, c
 
 // *******************************************************************************
 // * Randomness setup
-// *******************************************************************************/
+// *******************************************************************************
 using dist_type = std::uniform_int_distribution<int>;
 std::size_t test_global_seed = 0;
 boost::random::mt11213b test_global_rnd_engine;

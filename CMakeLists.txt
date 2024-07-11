@@ -45,7 +45,19 @@ target_include_directories(${CMAKE_WORKSPACE_NAME}_${CURRENT_PROJECT_NAME} INTER
                            ${Boost_INCLUDE_DIRS})
 
 target_link_libraries(${CMAKE_WORKSPACE_NAME}_${CURRENT_PROJECT_NAME} INTERFACE
-                      crypto3::all
+                      crypto3::block
+                      crypto3::codec
+                      crypto3::containers
+                      crypto3::multiprecision
+                      crypto3::algebra
+                      crypto3::math
+                      crypto3::zk
+                      crypto3::hash
+                      crypto3::random
+                      crypto3::marshalling-zk
+                      crypto3::marshalling-algebra
+                      crypto3::marshalling-core
+                      crypto3::marshalling-multiprecision
                       ${Boost_LIBRARIES})
 
 cm_deploy(TARGETS ${CMAKE_WORKSPACE_NAME}_${CURRENT_PROJECT_NAME}
@@ -53,4 +65,6 @@ cm_deploy(TARGETS ${CMAKE_WORKSPACE_NAME}_${CURRENT_PROJECT_NAME}
           NAMESPACE ${CMAKE_WORKSPACE_NAME}::)
 
 include(CMTest)
+
 cm_add_test_subdirectory(test)
+
