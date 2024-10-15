@@ -1,17 +1,18 @@
-name: Verify proofs
+name: Verify Proofs (Reusable)
 
 on:
   workflow_call:
 
 jobs:
   verify-proofs:
-    name: "Verify proofs"
     runs-on: [self-hosted, Linux, X64, aws_autoscaling]
     steps:
-      - name: Download artifact with proofs
+      - uses: actions/checkout@v4
+      - name: Download artifact
         uses: actions/download-artifact@v3
         with:
           name: proofs
+          path: ./contracts/zkllvm
       - name: Verify all proofs
         run: |
           ls -l -a
