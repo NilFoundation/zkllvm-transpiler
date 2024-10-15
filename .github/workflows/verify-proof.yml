@@ -1,0 +1,21 @@
+name: Verify proofs
+
+on:
+  workflow_call:
+
+jobs:
+  verify-proofs:
+    name: "Verify proofs"
+    runs-on: [self-hosted, Linux, X64, aws_autoscaling]
+    steps:
+      - name: Download artifact with proofs
+        uses: actions/download-artifact@v3
+        with:
+          name: proofs
+      - name: Verify all proofs
+        run: |
+          ls -l -a
+          cp -r circuit* contracts/zkllvm/
+          npx hardhat deploy
+          npx hardhat verify-circuit-proof-all
+
