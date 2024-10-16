@@ -1,0 +1,22 @@
+name: Verify Proofs (Reusable)
+
+on:
+  workflow_call:
+
+jobs:
+  verify-proofs:
+    runs-on: [self-hosted, Linux, X64, aws_autoscaling]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: proofs
+          path: ./contracts/zkllvm
+      - name: Verify all proofs
+        run: |
+          ls -l -a
+          cp -r circuit* contracts/zkllvm/
+          npx hardhat deploy
+          npx hardhat verify-circuit-proof-all
+
